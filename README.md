@@ -1,12 +1,12 @@
-# GigZo AI
+# GigZo
 
 ### AI-Powered Parametric Insurance for Gig Delivery Workers
 
 ## Overview
 
-GigZo AI is an AI-powered parametric insurance platform designed to protect delivery partners from income loss caused by real-world disruptions such as heavy rain, extreme pollution, floods, and sudden curfews.
+GigZo is an AI-powered parametric insurance platform designed to protect delivery partners from income loss caused by real-world disruptions such as heavy rain, extreme pollution, floods, and sudden curfews.
 
-Gig workers depend on daily working hours to earn their income. When external disruptions occur, deliveries stop and earnings immediately drop. GigZo AI introduces an automated safety net where verified external events trigger instant compensation without requiring manual claims.
+Gig workers depend on daily working hours to earn their income. When external disruptions occur, deliveries stop and earnings immediately drop. GigZo introduces an automated safety net where verified external events trigger instant compensation without requiring manual claims.
 
 The platform monitors environmental and social disruption signals using external APIs and AI models. When a predefined threshold is crossed, the system automatically initiates a claim and processes a payout for affected workers.
 
@@ -14,6 +14,8 @@ Our goal is simple:
 **protect the earnings of workers whose livelihoods depend on unpredictable real-world conditions.**
 
 ---
+
+![GigZo](docs/image.png)
 
 # Problem Statement
 
@@ -29,7 +31,7 @@ Examples of disruptions:
 
 When these events occur, workers lose valuable working hours and daily income. Traditional insurance systems are slow, paperwork heavy, and unsuitable for small, short-term income losses.
 
-GigZo AI solves this by using **parametric insurance**, where payouts are automatically triggered when measurable external events exceed predefined thresholds.
+GigZo solves this by using **parametric insurance**, where payouts are automatically triggered when measurable external events exceed predefined thresholds.
 
 ---
 
@@ -68,7 +70,7 @@ Key characteristics:
 * High exposure to environmental disruptions
 * Limited financial protection
 
-GigZo AI provides a weekly insurance model aligned with their earning cycle.
+GigZo provides a weekly insurance model aligned with their earning cycle.
 
 ---
 
@@ -186,6 +188,10 @@ Admin Dashboard
 
 # End-to-End Workflow
 
+The GigZo platform operates through a fully automated parametric insurance pipeline.
+
+![GigZo Workflow](docs/workflow.png)
+
 ### Step 1 — Worker Registration
 
 Workers register through the mobile app and provide:
@@ -246,6 +252,8 @@ The system triggers a payout using payment gateway integrations and notifies the
 
 # Technology Stack
 
+![Techstack](docs/techstack.png)
+
 ## Frontend
 
 * React Native (Expo)
@@ -285,7 +293,7 @@ The system triggers a payout using payment gateway integrations and notifies the
 # Repository Structure
 
 ```
-GigZo-ai
+GigZo
 │
 ├ mobile-app
 │   ├ app
@@ -313,7 +321,7 @@ GigZo-ai
 Clone the repository
 
 ```
-git clone https://github.com/your-repo/GigZo-ai
+git clone https://github.com/your-repo/GigZo
 ```
 
 Install dependencies
@@ -371,6 +379,6 @@ A startup-style hackathon focused on building AI-powered insurance solutions for
 
 # Vision
 
-GigZo AI aims to build a financial safety net for gig workers by combining artificial intelligence, real-time data, and parametric insurance models.
+GigZo aims to build a financial safety net for gig workers by combining artificial intelligence, real-time data, and parametric insurance models.
 
 By automating protection against real-world disruptions, we aim to create a resilient and sustainable gig economy.
