@@ -5,40 +5,19 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Brand, Neutral, Shadow, Radius, Spacing } from '@/constants/theme';
+import { Brand, Neutral, Shadow, Radius, Spacing, Font } from '@/constants/theme';
 import { mockRiskZones } from '@/services/mockData';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const MAP_HEIGHT = 280;
 
 type RiskLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 
-function riskColor(risk: RiskLevel): string {
-  switch (risk) {
-    case 'HIGH': return Brand.danger;
-    case 'MEDIUM': return Brand.warning;
-    case 'LOW': return Brand.success;
-  }
-}
+const riskColor = (r: RiskLevel) => ({ HIGH: Brand.danger, MEDIUM: Brand.warning, LOW: Brand.success }[r]);
+const riskBg = (r: RiskLevel) => ({ HIGH: Brand.dangerLight, MEDIUM: Brand.warningLight, LOW: Brand.successLight }[r]);
 
-function riskBg(risk: RiskLevel): string {
-  switch (risk) {
-    case 'HIGH': return Brand.dangerLight;
-    case 'MEDIUM': return Brand.warningLight;
-    case 'LOW': return Brand.successLight;
-  }
-}
-
-// Simulated map with SVG-style zone cards
-function MockMap({ selectedZone, onSelectZone }: {
-  selectedZone: string | null;
-  onSelectZone: (id: string) => void;
-}) {
-  // Simplified zone marker positions (relative percentages)
+// Simulated map placeholder
+function MapView({ selectedZone, onSelect }: { selectedZone: string | null; onSelect: (id: string) => void }) {
   const positions = [
     { id: 'z1', x: 0.36, y: 0.48 },
     { id: 'z2', x: 0.52, y: 0.26 },
@@ -48,148 +27,114 @@ function MockMap({ selectedZone, onSelectZone }: {
   ];
 
   return (
-    <View style={styles.mapContainer}>
-      {/* Grid overlay to simulate map */}
-      <View style={styles.mapGrid}>
-        {[...Array(6)].map((_, i) => (
-          <View key={i} style={styles.mapGridRow} />
-        ))}
-      </View>
-      {/* Road lines */}
-      <View style={[styles.mapRoad, { top: '40%', left: 0, right: 0, height: 2 }]} />
-      <View style={[styles.mapRoad, { top: 0, bottom: 0, left: '45%', width: 2 }]} />
-
-      {/* Zone pins */}
+    <View style={styles.mapWrap}>
+      {[...Array(8)].map((_, i) => (
+        <View key={i} style={[styles.gridLine, { top: `${(i + 1) * 12}%` as any }]} />
+      ))}
+      {[...Array(6)].map((_, i) => (
+        <View key={i} style={[styles.gridLineV, { left: `${(i + 1) * 16}%` as any }]} />
+      ))}
+      <View style={[styles.road, { top: '40%', left: 0, right: 0, height: 2 }]} />
+      <View style={[styles.road, { top: 0, bottom: 0, left: '45%', width: 2 }]} />
       {mockRiskZones.map((zone) => {
         const pos = positions.find((p) => p.id === zone.id);
         if (!pos) return null;
         const isSelected = selectedZone === zone.id;
+        const color = riskColor(zone.risk);
         return (
           <TouchableOpacity
             key={zone.id}
-            style={[
-              styles.zonePin,
-              {
-                left: `${pos.x * 100}%`,
-                top: `${pos.y * 100}%`,
-                backgroundColor: riskColor(zone.risk),
-                borderWidth: isSelected ? 3 : 0,
-                borderColor: Neutral.white,
-                transform: [{ scale: isSelected ? 1.2 : 1 }],
-              },
-            ]}
-            onPress={() => onSelectZone(zone.id)}
+            style={[styles.pin, {
+              left: `${pos.x * 100}%` as any,
+              top: `${pos.y * 100}%` as any,
+              backgroundColor: color,
+              borderWidth: isSelected ? 3 : 0,
+              borderColor: Neutral.white,
+              transform: [{ scale: isSelected ? 1.25 : 1 }],
+            }]}
+            onPress={() => onSelect(zone.id)}
           >
-            <Text style={styles.zonePinText}>{zone.risk[0]}</Text>
+            <Text style={styles.pinText}>{zone.risk[0]}</Text>
           </TouchableOpacity>
         );
       })}
-
-      {/* Legend overlay */}
-      <View style={styles.mapLegend}>
-        {(['HIGH', 'MEDIUM', 'LOW'] as RiskLevel[]).map((risk) => (
-          <View key={risk} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: riskColor(risk) }]} />
-            <Text style={styles.legendText}>{risk}</Text>
+      {/* Legend */}
+      <View style={styles.legend}>
+        {(['HIGH', 'MEDIUM', 'LOW'] as RiskLevel[]).map((r) => (
+          <View key={r} style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: riskColor(r) }]} />
+            <Text style={styles.legendLabel}>{r}</Text>
           </View>
         ))}
-      </View>
-    </View>
-  );
-}
-
-function ZoneDetail({ zoneId }: { zoneId: string | null }) {
-  if (!zoneId) return null;
-  const zone = mockRiskZones.find((z) => z.id === zoneId);
-  if (!zone) return null;
-
-  const color = riskColor(zone.risk);
-
-  return (
-    <View style={[styles.zoneDetail, { borderLeftColor: color }]}>
-      <View style={styles.zoneDetailTop}>
-        <View>
-          <Text style={styles.zoneName}>{zone.name}</Text>
-          <View style={[styles.riskBadge, { backgroundColor: riskBg(zone.risk) }]}>
-            <View style={[styles.riskDot, { backgroundColor: color }]} />
-            <Text style={[styles.riskBadgeText, { color }]}>{zone.risk} RISK</Text>
-          </View>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={Neutral[300]} />
-      </View>
-      <View style={styles.zoneStats}>
-        <View style={styles.zoneStat}>
-          <Ionicons name="rainy-outline" size={14} color={Brand.rain} />
-          <Text style={styles.zoneStatText}>62mm avg rain/month</Text>
-        </View>
-        <View style={styles.zoneStat}>
-          <Ionicons name="leaf-outline" size={14} color={Brand.aqi} />
-          <Text style={styles.zoneStatText}>AQI peaks 380+</Text>
-        </View>
-        <View style={styles.zoneStat}>
-          <Ionicons name="cash-outline" size={14} color={Brand.success} />
-          <Text style={styles.zoneStatText}>Avg ₹1,200 payouts/month</Text>
-        </View>
       </View>
     </View>
   );
 }
 
 export default function RiskMapScreen() {
-  const [selectedZone, setSelectedZone] = useState<string | null>('z1');
+  const [selected, setSelected] = useState<string | null>('z1');
+  const zone = mockRiskZones.find((z) => z.id === selected);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Risk Map</Text>
-          <Text style={styles.headerSub}>Tap a zone to see disruption details & payout history</Text>
+          <Text style={styles.headerSub}>Tap a zone to view disruption details</Text>
         </View>
 
-        {/* Map */}
-        <MockMap selectedZone={selectedZone} onSelectZone={setSelectedZone} />
+        <MapView selectedZone={selected} onSelect={setSelected} />
 
-        {/* Zone detail */}
         <View style={styles.content}>
-          <Text style={styles.sectionTitle}>Zone Details</Text>
-          <ZoneDetail zoneId={selectedZone} />
+          {/* Selected zone detail */}
+          {zone && (
+            <View style={[styles.zoneCard, { borderLeftColor: riskColor(zone.risk) }]}>
+              <View style={styles.zoneCardTop}>
+                <Text style={styles.zoneName}>{zone.name}</Text>
+                <View style={[styles.riskBadge, { backgroundColor: riskBg(zone.risk) }]}>
+                  <Text style={[styles.riskBadgeText, { color: riskColor(zone.risk) }]}>{zone.risk} RISK</Text>
+                </View>
+              </View>
+              <View style={styles.zoneStats}>
+                {[
+                  { icon: 'rainy-outline', text: '62mm avg rain / month', color: Brand.rain },
+                  { icon: 'leaf-outline', text: 'AQI peaks above 380', color: Brand.aqi },
+                  { icon: 'cash-outline', text: 'Avg ₹1,200 payouts / month', color: Brand.success },
+                ].map((s) => (
+                  <View key={s.text} style={styles.zoneStat}>
+                    <Ionicons name={s.icon as any} size={13} color={s.color} />
+                    <Text style={styles.zoneStatText}>{s.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Zone list */}
-          <Text style={[styles.sectionTitle, { marginTop: Spacing.xl }]}>All Zones</Text>
+          <Text style={[styles.listTitle, { marginTop: Spacing.xl }]}>All Zones</Text>
           <View style={styles.zoneList}>
-            {mockRiskZones.map((zone) => (
-              <TouchableOpacity
-                key={zone.id}
-                style={[
-                  styles.zoneListItem,
-                  selectedZone === zone.id && styles.zoneListItemSelected,
-                ]}
-                onPress={() => setSelectedZone(zone.id)}
-              >
-                <View style={[styles.zoneDot, { backgroundColor: riskColor(zone.risk) }]} />
-                <Text style={styles.zoneListName}>{zone.name}</Text>
-                <View style={[styles.riskBadge, { backgroundColor: riskBg(zone.risk), marginLeft: 'auto' }]}>
-                  <Text style={[styles.riskBadgeText, { color: riskColor(zone.risk) }]}>{zone.risk}</Text>
-                </View>
-              </TouchableOpacity>
+            {mockRiskZones.map((z, idx) => (
+              <View key={z.id}>
+                <TouchableOpacity
+                  style={[styles.zoneRow, selected === z.id && styles.zoneRowSelected]}
+                  onPress={() => setSelected(z.id)}
+                >
+                  <View style={[styles.zoneDot, { backgroundColor: riskColor(z.risk) }]} />
+                  <Text style={styles.zoneRowName}>{z.name}</Text>
+                  <View style={[styles.riskBadge, { backgroundColor: riskBg(z.risk), marginLeft: 'auto' }]}>
+                    <Text style={[styles.riskBadgeText, { color: riskColor(z.risk) }]}>{z.risk}</Text>
+                  </View>
+                </TouchableOpacity>
+                {idx < mockRiskZones.length - 1 && <View style={styles.sep} />}
+              </View>
             ))}
           </View>
 
-          {/* Info card */}
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle-outline" size={18} color={Brand.primary} />
-            <Text style={styles.infoText}>
-              Risk scores are recalculated daily using weather, air quality, and historical flood data.
-            </Text>
+            <Ionicons name="information-circle-outline" size={16} color={Brand.primary} />
+            <Text style={styles.infoText}>Risk scores update daily using live weather and air quality data.</Text>
           </View>
         </View>
-
-        <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -197,109 +142,61 @@ export default function RiskMapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Neutral[50] },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 24 },
-
   header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
     backgroundColor: Neutral.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Neutral[100],
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Neutral[200],
   },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: Neutral[900], letterSpacing: -0.5 },
-  headerSub: { fontSize: 13, color: Neutral[500], marginTop: 4 },
+  headerTitle: { fontFamily: Font.bold, fontSize: 26, color: Neutral[900], letterSpacing: -0.4 },
+  headerSub: { fontFamily: Font.regular, fontSize: 13, color: Neutral[500], marginTop: 4 },
 
-  // Map
-  mapContainer: {
-    height: MAP_HEIGHT,
-    backgroundColor: '#e8f4f0',
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  mapGrid: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'column',
-    justifyContent: 'space-evenly',
-  },
-  mapGridRow: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(2,85,93,0.08)',
-  },
-  mapRoad: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255,255,255,0.6)',
-  },
-  zonePin: {
-    position: 'absolute',
-    width: 28, height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -14, marginTop: -14,
+  mapWrap: { height: 260, backgroundColor: '#dff0ee', position: 'relative', overflow: 'hidden' },
+  gridLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(2,85,93,0.1)' },
+  gridLineV: { position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(2,85,93,0.1)' },
+  road: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.5)' },
+  pin: {
+    position: 'absolute', width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center', marginLeft: -13, marginTop: -13,
     ...Shadow.md,
   },
-  zonePinText: { color: Neutral.white, fontSize: 11, fontWeight: '800' },
-  mapLegend: {
-    position: 'absolute',
-    bottom: 12, right: 12,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    gap: 4,
-    ...Shadow.sm,
+  pinText: { fontFamily: Font.bold, color: Neutral.white, fontSize: 10 },
+  legend: {
+    position: 'absolute', bottom: 10, right: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: Radius.md, padding: Spacing.sm, gap: 4,
+    ...Shadow.xs,
   },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11, fontWeight: '600', color: Neutral[700] },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 7, height: 7, borderRadius: 3.5 },
+  legendLabel: { fontFamily: Font.semiBold, fontSize: 10, color: Neutral[700] },
 
   content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: Neutral[900], marginBottom: Spacing.md, letterSpacing: -0.3 },
-
-  // Zone detail
-  zoneDetail: {
-    backgroundColor: Neutral.white,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderLeftWidth: 4,
-    ...Shadow.sm,
+  zoneCard: {
+    backgroundColor: Neutral.white, borderRadius: Radius.lg, padding: Spacing.lg,
+    borderLeftWidth: 4, ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100],
+    borderTopColor: Neutral[100], borderRightColor: Neutral[100], borderBottomColor: Neutral[100],
   },
-  zoneDetailTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  zoneName: { fontSize: 17, fontWeight: '700', color: Neutral[900], marginBottom: 6 },
-  riskBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full, alignSelf: 'flex-start' },
-  riskDot: { width: 7, height: 7, borderRadius: 3.5 },
-  riskBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
-  zoneStats: { gap: Spacing.sm },
-  zoneStat: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  zoneStatText: { fontSize: 13, color: Neutral[600], fontWeight: '500' },
+  zoneCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  zoneName: { fontFamily: Font.bold, fontSize: 17, color: Neutral[900] },
+  riskBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
+  riskBadgeText: { fontFamily: Font.bold, fontSize: 11, letterSpacing: 0.3 },
+  zoneStats: { gap: Spacing.sm - 2 },
+  zoneStat: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  zoneStatText: { fontFamily: Font.regular, fontSize: 13, color: Neutral[600] },
 
-  // Zone list
+  listTitle: { fontFamily: Font.bold, fontSize: 16, color: Neutral[900], marginBottom: Spacing.md },
   zoneList: {
-    backgroundColor: Neutral.white,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-    ...Shadow.sm,
+    backgroundColor: Neutral.white, borderRadius: Radius.lg,
+    overflow: 'hidden', ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100],
   },
-  zoneListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Neutral[100],
-  },
-  zoneListItemSelected: { backgroundColor: Brand.primaryLight },
-  zoneDot: { width: 10, height: 10, borderRadius: 5 },
-  zoneListName: { fontSize: 14, fontWeight: '600', color: Neutral[800] },
+  zoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
+  zoneRowSelected: { backgroundColor: Brand.primaryLight },
+  zoneDot: { width: 9, height: 9, borderRadius: 4.5 },
+  zoneRowName: { fontFamily: Font.medium, fontSize: 14, color: Neutral[800] },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: Neutral[100] },
 
   infoCard: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-    backgroundColor: Brand.primaryLight,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    marginTop: Spacing.lg,
+    flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start',
+    backgroundColor: Brand.primaryLight, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.lg,
   },
-  infoText: { flex: 1, fontSize: 12, color: Brand.primaryDark, lineHeight: 18, fontWeight: '500' },
+  infoText: { flex: 1, fontFamily: Font.regular, fontSize: 12, color: Brand.primaryDark, lineHeight: 18 },
 });
