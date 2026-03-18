@@ -39,7 +39,7 @@ interface AppState {
 
 export const useAppStore = create<AppState>((set) => ({
   user: mockUser,
-  isOnboarded: false, // set to false to show onboarding
+  isOnboarded: false, // false = show onboarding flow
   conditions: mockLiveConditions,
   earnings: mockEarnings,
   alert: mockAlert,

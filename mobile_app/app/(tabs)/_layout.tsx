@@ -6,47 +6,45 @@ import { Brand, Neutral, Font } from '@/constants/theme';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface TabIconProps {
-  name: IoniconsName;
-  color: string;
-  focused: boolean;
-  label: string;
-}
-
-function TabIcon({ name, color, focused, label }: TabIconProps) {
+function TabIcon({ name, color, focused, label }: {
+  name: IoniconsName; color: string; focused: boolean; label: string;
+}) {
   return (
     <View style={styles.tabItem}>
       <Ionicons name={name} size={22} color={color} />
-      <Text style={[styles.tabLabel, { color, fontFamily: focused ? Font.semiBold : Font.medium }]}>
+      <Text
+        style={[styles.tabLabel, { color, fontFamily: focused ? Font.semiBold : Font.medium }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
+      >
         {label}
       </Text>
     </View>
   );
 }
 
-const TAB_HEIGHT = Platform.OS === 'ios' ? 88 : 72;
-const TAB_PADDING_BOTTOM = Platform.OS === 'ios' ? 28 : 12;
-
 export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false, // we render our own label inside TabIcon
+        tabBarShowLabel: false,
         tabBarActiveTintColor: Brand.primary,
         tabBarInactiveTintColor: Neutral[400],
         tabBarStyle: {
           backgroundColor: Neutral.white,
           borderTopColor: Neutral[200],
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: TAB_HEIGHT,
-          paddingBottom: TAB_PADDING_BOTTOM,
-          paddingTop: 10,
+          height: Platform.OS === 'ios' ? 88 : 68,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          paddingTop: 8,
+          paddingHorizontal: 4,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          elevation: 16,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 8,
+          elevation: 12,
         },
       }}
     >
@@ -70,7 +68,7 @@ export default function TabLayout() {
         name="risk-map"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'map' : 'map-outline'} color={color} focused={focused} label="Risk Map" />
+            <TabIcon name={focused ? 'map' : 'map-outline'} color={color} focused={focused} label="Map" />
           ),
         }}
       />
@@ -83,10 +81,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="profile"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name={focused ? 'time' : 'time-outline'} color={color} focused={focused} label="History" />
+            <TabIcon name={focused ? 'person-circle' : 'person-circle-outline'} color={color} focused={focused} label="Profile" />
           ),
         }}
       />
@@ -99,10 +97,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    paddingTop: 2,
+    flex: 1,
+    width: 56,
   },
   tabLabel: {
     fontSize: 10,
     letterSpacing: 0.1,
+    textAlign: 'center',
   },
 });

@@ -13,6 +13,11 @@ import { useRouter } from 'expo-router';
 import { Brand, Neutral, Shadow, Radius, Spacing, Font } from '@/constants/theme';
 import { useAppStore } from '@/store/useAppStore';
 
+// Teal-only palette helper — no red/amber/blue
+const TEAL = Brand.primary;
+const TEAL_LIGHT = Brand.primaryLight;
+const TEAL_MID = Brand.primaryMid;
+
 // ─── Status Card ──────────────────────────────────────────────────────────────
 function StatusCard() {
   const { user } = useAppStore();
@@ -21,8 +26,8 @@ function StatusCard() {
   if (user.isProtected) {
     return (
       <View style={[styles.card, styles.cardProtected]}>
-        <View style={[styles.iconCircle, { backgroundColor: Brand.primaryLight }]}>
-          <Ionicons name="shield-checkmark" size={22} color={Brand.primary} />
+        <View style={[styles.iconCircle, { backgroundColor: TEAL_LIGHT }]}>
+          <Ionicons name="shield-checkmark" size={22} color={TEAL} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle}>You are Protected</Text>
@@ -35,12 +40,12 @@ function StatusCard() {
   }
 
   return (
-    <View style={[styles.card, styles.cardAlert]}>
-      <View style={[styles.iconCircle, { backgroundColor: Brand.dangerLight }]}>
-        <Ionicons name="shield-outline" size={22} color={Brand.danger} />
+    <View style={[styles.card, styles.cardProtected, { borderLeftColor: Neutral[400] }]}>
+      <View style={[styles.iconCircle, { backgroundColor: Neutral[100] }]}>
+        <Ionicons name="shield-outline" size={22} color={Neutral[500]} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.cardTitle, { color: Brand.danger }]}>Not Protected</Text>
+        <Text style={[styles.cardTitle, { color: Neutral[700] }]}>Not Protected</Text>
         <Text style={styles.cardSub}>Activate a plan to secure your earnings</Text>
       </View>
       <TouchableOpacity style={styles.smallBtn} onPress={() => router.push('/(tabs)/plans')}>
@@ -58,14 +63,14 @@ function ClaimBanner() {
 
   return (
     <TouchableOpacity style={styles.claimBanner} onPress={() => router.push('/(tabs)/claims')}>
-      <View style={[styles.iconCircleSmall, { backgroundColor: Brand.warningLight }]}>
-        <Ionicons name="flash" size={15} color={Brand.warning} />
+      <View style={[styles.iconCircleSmall, { backgroundColor: TEAL_LIGHT }]}>
+        <Ionicons name="flash" size={15} color={TEAL} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={styles.claimTitle}>Claim In Progress</Text>
         <Text style={styles.claimSub}>{activeClaim.type} threshold exceeded — verification running</Text>
       </View>
-      <Text style={[styles.viewLabel, { color: Brand.primary }]}>View</Text>
+      <Text style={[styles.viewLabel, { color: TEAL }]}>View</Text>
     </TouchableOpacity>
   );
 }
@@ -73,38 +78,33 @@ function ClaimBanner() {
 // ─── Live Conditions ──────────────────────────────────────────────────────────
 function ConditionsCard() {
   const { conditions } = useAppStore();
-  const riskColor = conditions.overallRisk === 'HIGH' ? Brand.danger
-    : conditions.overallRisk === 'MEDIUM' ? Brand.warning : Brand.success;
 
   return (
     <View style={styles.section}>
       <View style={styles.sectionRow}>
         <Text style={styles.sectionTitle}>Live Conditions</Text>
-        <View style={[styles.pill, { backgroundColor: riskColor + '18' }]}>
-          <View style={[styles.pillDot, { backgroundColor: riskColor }]} />
-          <Text style={[styles.pillText, { color: riskColor }]}>{conditions.overallRisk} RISK</Text>
+        <View style={[styles.pill, { backgroundColor: TEAL_LIGHT }]}>
+          <View style={[styles.pillDot, { backgroundColor: TEAL }]} />
+          <Text style={[styles.pillText, { color: TEAL }]}>{conditions.overallRisk} RISK</Text>
         </View>
       </View>
 
       <View style={styles.condCard}>
-        {/* Live label */}
         <View style={styles.liveRow}>
           <View style={styles.livePulse} />
           <Text style={styles.liveText}>LIVE</Text>
         </View>
 
-        {/* Metrics */}
         <View style={styles.metricsRow}>
-          <Metric icon="rainy-outline" value={`${conditions.rainfall.value}mm`} label="Rainfall" highlighted={conditions.rainfall.triggered} color={Brand.rain} />
+          <Metric icon="rainy-outline" value={`${conditions.rainfall.value}mm`} label="Rainfall" highlighted={conditions.rainfall.triggered} />
           <View style={styles.metricSep} />
-          <Metric icon="leaf-outline" value={`${conditions.aqi.value}`} label="AQI" highlighted={conditions.aqi.triggered} color={Brand.aqi} />
+          <Metric icon="leaf-outline" value={`${conditions.aqi.value}`} label="AQI" highlighted={conditions.aqi.triggered} />
           <View style={styles.metricSep} />
-          <Metric icon="thermometer-outline" value={`${conditions.temperature.value}°C`} label="Temp" highlighted={false} color={Neutral[500]} />
+          <Metric icon="thermometer-outline" value={`${conditions.temperature.value}°C`} label="Temp" highlighted={false} />
         </View>
 
-        {/* Status bar */}
         <View style={styles.statusBar}>
-          <Ionicons name="warning-outline" size={13} color={Brand.warning} />
+          <Ionicons name="information-circle-outline" size={13} color={TEAL} />
           <Text style={styles.statusBarText}>{conditions.status}</Text>
         </View>
       </View>
@@ -112,14 +112,14 @@ function ConditionsCard() {
   );
 }
 
-function Metric({ icon, value, label, highlighted, color }: {
+function Metric({ icon, value, label, highlighted }: {
   icon: React.ComponentProps<typeof Ionicons>['name'];
-  value: string; label: string; highlighted: boolean; color: string;
+  value: string; label: string; highlighted: boolean;
 }) {
   return (
     <View style={styles.metric}>
-      <Ionicons name={icon} size={18} color={color} />
-      <Text style={[styles.metricValue, { color: highlighted ? color : Neutral[800] }]}>{value}</Text>
+      <Ionicons name={icon} size={18} color={highlighted ? TEAL : Neutral[400]} />
+      <Text style={[styles.metricValue, { color: highlighted ? TEAL : Neutral[800] }]}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
@@ -152,9 +152,9 @@ function EarningsBar() {
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 const ACTIONS = [
   { icon: 'shield-checkmark-outline', label: 'Buy Plan', route: '/(tabs)/plans', color: Brand.primary, bg: Brand.primaryLight },
-  { icon: 'flash-outline', label: 'Claims', route: '/(tabs)/claims', color: Brand.warning, bg: Brand.warningLight },
-  { icon: 'map-outline', label: 'Risk Map', route: '/(tabs)/risk-map', color: Brand.flood, bg: Brand.floodLight },
-  { icon: 'time-outline', label: 'History', route: '/(tabs)/history', color: Neutral[600], bg: Neutral[100] },
+  { icon: 'flash-outline', label: 'Claims', route: '/(tabs)/claims', color: Brand.primaryMid, bg: Brand.primaryLight },
+  { icon: 'map-outline', label: 'Risk Map', route: '/(tabs)/risk-map', color: Brand.primary, bg: Brand.accentLight },
+  { icon: 'person-circle-outline', label: 'Profile', route: '/(tabs)/profile', color: Neutral[600], bg: Neutral[100] },
 ] as const;
 
 function QuickActions() {
@@ -244,7 +244,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Neutral[100],
   },
   cardProtected: { borderLeftWidth: 3, borderLeftColor: Brand.primary },
-  cardAlert: { borderLeftWidth: 3, borderLeftColor: Brand.danger },
   iconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   cardTitle: { fontFamily: Font.semiBold, fontSize: 14, color: Neutral[800] },
   cardSub: { fontFamily: Font.regular, fontSize: 12, color: Neutral[500], marginTop: 2 },
@@ -258,7 +257,7 @@ const styles = StyleSheet.create({
   claimBanner: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
     backgroundColor: Neutral.white, borderRadius: Radius.lg,
-    padding: Spacing.md, borderLeftWidth: 3, borderLeftColor: Brand.warning,
+    padding: Spacing.md, borderLeftWidth: 3, borderLeftColor: Brand.primary,
     borderWidth: 1, borderColor: Neutral[100], ...Shadow.xs,
   },
   iconCircleSmall: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
@@ -285,9 +284,9 @@ const styles = StyleSheet.create({
   metricLabel: { fontFamily: Font.medium, fontSize: 11, color: Neutral[400] },
   statusBar: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Brand.warningLight, padding: Spacing.sm, borderRadius: Radius.sm,
+    backgroundColor: Brand.primaryLight, padding: Spacing.sm, borderRadius: Radius.sm,
   },
-  statusBarText: { fontFamily: Font.medium, fontSize: 12, color: '#92400e', flex: 1 },
+  statusBarText: { fontFamily: Font.medium, fontSize: 12, color: Brand.primaryDark, flex: 1 },
 
   // Earnings
   earningsCard: {

@@ -1,5 +1,5 @@
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Redirect, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import {
@@ -10,6 +10,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { useFonts } from 'expo-font';
 import { View } from 'react-native';
+import { useAppStore } from '@/store/useAppStore';
 
 const GigZoTheme = {
   ...DefaultTheme,
@@ -34,12 +35,14 @@ export default function RootLayout() {
     'Inter-SemiBold': Inter_600SemiBold,
     'Inter-Bold': Inter_700Bold,
   });
+  const { isOnboarded } = useAppStore();
 
   if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: '#f7f8fa' }} />;
 
   return (
     <ThemeProvider value={GigZoTheme}>
       <StatusBar style="dark" backgroundColor="#ffffff" />
+      {!isOnboarded && <Redirect href="/onboarding/welcome" />}
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
