@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Brand, Neutral, Shadow, Radius, Spacing } from '@/constants/theme';
+import { Brand, Neutral, Shadow, Radius, Spacing, Font } from '@/constants/theme';
 import { mockPlans, mockUser } from '@/services/mockData';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -22,46 +22,35 @@ function PlanCard({ plan, isSelected, onSelect }: {
 
   if (isPro) {
     return (
-      <TouchableOpacity
-        style={[styles.planCardDark, isSelected && styles.planCardSelected]}
-        onPress={onSelect}
-        activeOpacity={0.92}
-      >
-        {/* Header */}
-        <View style={styles.planCardDarkHeader}>
+      <TouchableOpacity style={[styles.proCard, isSelected && styles.proCardSelected]} onPress={onSelect} activeOpacity={0.9}>
+        <View style={styles.planHeader}>
           <View>
-            <Text style={styles.planNameDark}>{plan.name}</Text>
+            <Text style={styles.planNameLight}>Pro</Text>
             {plan.recommended && (
-              <View style={styles.recommendedBadge}>
-                <Ionicons name="star" size={10} color={Brand.warning} />
-                <Text style={styles.recommendedText}>AI Recommended · {mockUser.zone}</Text>
-              </View>
+              <Text style={styles.recommendedLabel}>AI Recommended for {mockUser.zone}</Text>
             )}
           </View>
-          <View style={[styles.selectCircle, isSelected && styles.selectCircleActive]}>
-            {isSelected && <Ionicons name="checkmark" size={14} color={Neutral.white} />}
+          <View style={[styles.checkCircle, isSelected && styles.checkCircleActive]}>
+            {isSelected && <Ionicons name="checkmark" size={13} color={Neutral.white} />}
           </View>
         </View>
 
-        {/* Price */}
         <View style={styles.priceRow}>
-          <Text style={styles.currencyDark}>₹</Text>
-          <Text style={styles.priceDark}>{plan.price}</Text>
-          <Text style={styles.periodDark}>/{plan.period}</Text>
+          <Text style={styles.currencyLight}>₹</Text>
+          <Text style={styles.priceLight}>{plan.price}</Text>
+          <Text style={styles.periodLight}>/week</Text>
         </View>
 
-        {/* Payout tag */}
-        <View style={styles.payoutTagDark}>
-          <Ionicons name="shield-checkmark" size={14} color={Brand.primaryLight} />
-          <Text style={styles.payoutTagTextDark}>₹{plan.payoutPerDay} payout per disruption day</Text>
+        <View style={styles.tagDark}>
+          <Ionicons name="shield-checkmark" size={13} color='rgba(255,255,255,0.8)' />
+          <Text style={styles.tagDarkText}>₹{plan.payoutPerDay} payout per disruption day</Text>
         </View>
 
-        {/* Features */}
-        <View style={styles.featuresWrap}>
+        <View style={styles.features}>
           {plan.features.map((f) => (
             <View key={f} style={styles.featureRow}>
-              <Ionicons name="checkmark" size={14} color={Brand.primaryLight} />
-              <Text style={styles.featureTextDark}>{f}</Text>
+              <Ionicons name="checkmark" size={13} color='rgba(255,255,255,0.7)' />
+              <Text style={styles.featureTextLight}>{f}</Text>
             </View>
           ))}
         </View>
@@ -70,34 +59,30 @@ function PlanCard({ plan, isSelected, onSelect }: {
   }
 
   return (
-    <TouchableOpacity
-      style={[styles.planCardLight, isSelected && styles.planCardLightSelected]}
-      onPress={onSelect}
-      activeOpacity={0.92}
-    >
-      <View style={styles.planCardHeader}>
-        <Text style={styles.planNameLight}>{plan.name}</Text>
-        <View style={[styles.selectCircle, { borderColor: Neutral[300] }, isSelected && styles.selectCircleActive]}>
-          {isSelected && <Ionicons name="checkmark" size={14} color={Neutral.white} />}
+    <TouchableOpacity style={[styles.basicCard, isSelected && styles.basicCardSelected]} onPress={onSelect} activeOpacity={0.9}>
+      <View style={styles.planHeader}>
+        <Text style={styles.planNameDark}>Basic</Text>
+        <View style={[styles.checkCircle, { borderColor: Neutral[200] }, isSelected && styles.checkCircleActive]}>
+          {isSelected && <Ionicons name="checkmark" size={13} color={Neutral.white} />}
         </View>
       </View>
 
       <View style={styles.priceRow}>
-        <Text style={[styles.currencyDark, { color: Neutral[800] }]}>₹</Text>
-        <Text style={[styles.priceDark, { color: Neutral[900] }]}>{plan.price}</Text>
-        <Text style={[styles.periodDark, { color: Neutral[400] }]}>/{plan.period}</Text>
+        <Text style={[styles.currencyLight, { color: Neutral[800] }]}>₹</Text>
+        <Text style={[styles.priceLight, { color: Neutral[900] }]}>{plan.price}</Text>
+        <Text style={[styles.periodLight, { color: Neutral[400] }]}>/week</Text>
       </View>
 
-      <View style={[styles.payoutTagDark, { backgroundColor: Brand.primaryLight }]}>
-        <Ionicons name="shield-checkmark" size={14} color={Brand.primary} />
-        <Text style={[styles.payoutTagTextDark, { color: Brand.primary }]}>₹{plan.payoutPerDay} payout per disruption day</Text>
+      <View style={[styles.tagDark, { backgroundColor: Brand.primaryLight }]}>
+        <Ionicons name="shield-checkmark" size={13} color={Brand.primary} />
+        <Text style={[styles.tagDarkText, { color: Brand.primary }]}>₹{plan.payoutPerDay} payout per disruption day</Text>
       </View>
 
-      <View style={styles.featuresWrap}>
+      <View style={styles.features}>
         {plan.features.map((f) => (
           <View key={f} style={styles.featureRow}>
-            <Ionicons name="checkmark" size={14} color={Brand.primary} />
-            <Text style={styles.featureTextLight}>{f}</Text>
+            <Ionicons name="checkmark" size={13} color={Brand.primary} />
+            <Text style={styles.featureTextDark}>{f}</Text>
           </View>
         ))}
       </View>
@@ -110,36 +95,30 @@ export default function PlansScreen() {
 
   const handleActivate = () => {
     if (!selectedPlan) {
-      Alert.alert('Select a Plan', 'Please select a plan before activating.');
+      Alert.alert('Select a Plan', 'Please choose a plan first.');
       return;
     }
-    Alert.alert('Plan Activated!', `Your ${selectedPlan === 'pro' ? 'Pro' : 'Basic'} plan has been activated. You are now protected.`);
+    Alert.alert('Plan Activated', `Your ${selectedPlan === 'pro' ? 'Pro' : 'Basic'} plan is now active.`);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Coverage Plans</Text>
-          <Text style={styles.headerSub}>AI-tailored premium based on your zone's environmental risk</Text>
+          <Text style={styles.headerSub}>AI-tailored based on your zone's risk profile</Text>
         </View>
 
-        {/* Zone badge */}
-        <View style={styles.zoneBadgeRow}>
-          <View style={styles.zoneBadge}>
-            <Ionicons name="hardware-chip-outline" size={13} color={Brand.primary} />
-            <Text style={styles.zoneBadgeText}>{mockUser.zone}</Text>
-            <Text style={[styles.zoneBadgeText, { color: Brand.danger }]}>· HIGH risk</Text>
-            <Text style={[styles.zoneBadgeText, { color: Brand.primary, fontWeight: '700' }]}>· Pro recommended</Text>
+        {/* Zone pill */}
+        <View style={styles.zonePillRow}>
+          <View style={styles.zonePill}>
+            <Ionicons name="hardware-chip-outline" size={12} color={Brand.primary} />
+            <Text style={styles.zonePillText}>{mockUser.zone} · HIGH risk · Pro recommended</Text>
           </View>
         </View>
 
-        {/* Plan cards */}
+        {/* Plan cards — Basic first, Pro second */}
         {mockPlans.map((plan) => (
           <PlanCard
             key={plan.id}
@@ -149,19 +128,15 @@ export default function PlansScreen() {
           />
         ))}
 
-        {/* Activate CTA */}
+        {/* CTA */}
         <TouchableOpacity style={styles.activateBtn} onPress={handleActivate} activeOpacity={0.88}>
-          <Ionicons name="shield-checkmark" size={20} color={Neutral.white} />
           <Text style={styles.activateBtnText}>Activate Plan</Text>
         </TouchableOpacity>
 
-        {/* Trust note */}
-        <View style={styles.trustNote}>
-          <Ionicons name="lock-closed-outline" size={14} color={Neutral[400]} />
-          <Text style={styles.trustText}>Powered by AI risk scoring · Instant payout guarantee</Text>
+        <View style={styles.trustRow}>
+          <Ionicons name="lock-closed-outline" size={13} color={Neutral[400]} />
+          <Text style={styles.trustText}>Secured · Instant payout guarantee</Text>
         </View>
-
-        <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -169,104 +144,73 @@ export default function PlansScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Neutral[50] },
-  scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 24 },
 
   header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
     backgroundColor: Neutral.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Neutral[100],
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Neutral[200],
   },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: Neutral[900], letterSpacing: -0.5 },
-  headerSub: { fontSize: 13, color: Neutral[500], marginTop: 4, lineHeight: 18 },
+  headerTitle: { fontFamily: Font.bold, fontSize: 26, color: Neutral[900], letterSpacing: -0.4 },
+  headerSub: { fontFamily: Font.regular, fontSize: 13, color: Neutral[500], marginTop: 4 },
 
-  zoneBadgeRow: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Neutral.white },
-  zoneBadge: {
+  zonePillRow: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Neutral.white, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Neutral[100] },
+  zonePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: Brand.primaryLight,
-    paddingHorizontal: 12, paddingVertical: 7,
+    paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: Radius.full, alignSelf: 'flex-start',
   },
-  zoneBadgeText: { fontSize: 12, fontWeight: '600', color: Neutral[700] },
+  zonePillText: { fontFamily: Font.semiBold, fontSize: 12, color: Brand.primaryDark },
 
-  // Plan cards
-  planCardLight: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.lg,
-    backgroundColor: Neutral.white,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1.5,
-    borderColor: Neutral[200],
-    ...Shadow.sm,
+  // Cards
+  basicCard: {
+    marginHorizontal: Spacing.xl, marginTop: Spacing.lg,
+    backgroundColor: Neutral.white, borderRadius: Radius.xl,
+    padding: Spacing.xl, borderWidth: 1.5, borderColor: Neutral[200], ...Shadow.xs,
   },
-  planCardLightSelected: { borderColor: Brand.primary },
-  planCardDark: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.lg,
-    backgroundColor: Brand.primary,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    ...Shadow.md,
+  basicCardSelected: { borderColor: Brand.primary },
+  proCard: {
+    marginHorizontal: Spacing.xl, marginTop: Spacing.md,
+    backgroundColor: Brand.primary, borderRadius: Radius.xl,
+    padding: Spacing.xl, ...Shadow.md,
   },
-  planCardSelected: { borderWidth: 2.5, borderColor: Brand.primaryLight },
-  planCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
-  planCardDarkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
+  proCardSelected: { borderWidth: 2, borderColor: Brand.primaryLight },
 
-  planNameLight: { fontSize: 20, fontWeight: '700', color: Neutral[900] },
-  planNameDark: { fontSize: 20, fontWeight: '700', color: Neutral.white },
-
-  recommendedBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    marginTop: 4,
-  },
-  recommendedText: { fontSize: 11, color: Brand.warning, fontWeight: '600' },
-
-  selectCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)',
+  planHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.md },
+  planNameDark: { fontFamily: Font.bold, fontSize: 20, color: Neutral[900] },
+  planNameLight: { fontFamily: Font.bold, fontSize: 20, color: Neutral.white },
+  recommendedLabel: { fontFamily: Font.medium, fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 },
+  checkCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center', justifyContent: 'center',
   },
-  selectCircleActive: { backgroundColor: Brand.success, borderColor: Brand.success },
+  checkCircleActive: { backgroundColor: Brand.success, borderColor: Brand.success },
 
   priceRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 2, marginBottom: Spacing.md },
-  currencyDark: { fontSize: 20, fontWeight: '700', color: Neutral.white, paddingBottom: 4 },
-  priceDark: { fontSize: 44, fontWeight: '800', color: Neutral.white, lineHeight: 52 },
-  periodDark: { fontSize: 16, color: 'rgba(255,255,255,0.6)', paddingBottom: 6, fontWeight: '500' },
+  currencyLight: { fontFamily: Font.bold, fontSize: 18, color: Neutral.white, paddingBottom: 4 },
+  priceLight: { fontFamily: Font.bold, fontSize: 44, color: Neutral.white, lineHeight: 52 },
+  periodLight: { fontFamily: Font.medium, fontSize: 15, color: 'rgba(255,255,255,0.55)', paddingBottom: 5 },
 
-  payoutTagDark: {
+  tagDark: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    padding: Spacing.sm, borderRadius: Radius.sm,
-    marginBottom: Spacing.lg,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    padding: Spacing.sm, borderRadius: Radius.sm, marginBottom: Spacing.lg,
   },
-  payoutTagTextDark: { fontSize: 13, fontWeight: '600', color: Neutral.white },
+  tagDarkText: { fontFamily: Font.semiBold, fontSize: 12, color: Neutral.white },
 
-  featuresWrap: { gap: Spacing.xs },
+  features: { gap: Spacing.xs + 2 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureTextDark: { fontSize: 13, color: 'rgba(255,255,255,0.85)', fontWeight: '500' },
-  featureTextLight: { fontSize: 13, color: Neutral[600], fontWeight: '500' },
+  featureTextLight: { fontFamily: Font.regular, fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+  featureTextDark: { fontFamily: Font.regular, fontSize: 13, color: Neutral[600] },
 
   activateBtn: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
+    marginHorizontal: Spacing.xl, marginTop: Spacing.xl,
     backgroundColor: Brand.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.sm,
-    paddingVertical: 16,
-    borderRadius: Radius.lg,
-    ...Shadow.md,
+    alignItems: 'center', paddingVertical: 16, borderRadius: Radius.lg, ...Shadow.md,
   },
-  activateBtnText: { fontSize: 16, fontWeight: '700', color: Neutral.white },
+  activateBtnText: { fontFamily: Font.bold, fontSize: 16, color: Neutral.white },
 
-  trustNote: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    justifyContent: 'center', marginTop: Spacing.md,
-  },
-  trustText: { fontSize: 11, color: Neutral[400], fontWeight: '500' },
+  trustRow: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: Spacing.md },
+  trustText: { fontFamily: Font.regular, fontSize: 12, color: Neutral[400] },
 });

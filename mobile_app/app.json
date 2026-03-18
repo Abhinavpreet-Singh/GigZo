@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "GigZo",
-    "slug": "gigzo-app",
+    "slug": "gigzo-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -40,6 +40,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5653ff15-4f62-425d-bf24-fa9fc596822c"
+      }
+    },
+    "owner": "abhinavpreets-organization"
   }
 }

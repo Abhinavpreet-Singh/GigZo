@@ -1,99 +1,89 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Brand, Neutral, Shadow, Radius, Spacing } from '@/constants/theme';
+import { Brand, Neutral, Radius, Spacing, Font, Shadow } from '@/constants/theme';
 import { useAppStore } from '@/store/useAppStore';
 
-const RISK_FACTORS = [
-  { icon: 'rainy-outline', label: 'Frequent Rainfall Area', color: Brand.rain, bg: '#eff6ff' },
-  { icon: 'leaf-outline', label: 'High AQI Zone', color: Brand.aqi, bg: '#fffbeb' },
-  { icon: 'water-outline', label: 'Flood-prone Sector', color: Brand.flood, bg: '#f5f3ff' },
+const FACTORS = [
+  { icon: 'rainy-outline', label: 'Frequent Rainfall Zone', color: Brand.rain, bg: Brand.rainLight },
+  { icon: 'leaf-outline', label: 'High Air Pollution Index', color: Brand.aqi, bg: Brand.aqiLight },
+  { icon: 'water-outline', label: 'Flood-Prone Sector', color: Brand.flood, bg: Brand.floodLight },
 ];
 
 export default function RiskPreviewScreen() {
   const router = useRouter();
   const { setOnboarded } = useAppStore();
 
-  const handleSeePlans = () => {
-    setOnboarded(true);
-    router.replace('/(tabs)/plans');
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <TouchableOpacity style={styles.back} onPress={() => router.back()}>
-        <Ionicons name="arrow-back" size={22} color={Neutral[700]} />
+        <Ionicons name="arrow-back" size={20} color={Neutral[700]} />
       </TouchableOpacity>
 
-      {/* Step indicator */}
+      {/* Step bar — all complete */}
       <View style={styles.stepRow}>
         {[1, 2, 3, 4].map((s) => (
-          <View key={s} style={[styles.stepDot, { backgroundColor: Brand.primary }]} />
+          <View key={s} style={[styles.step, styles.stepActive]} />
         ))}
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.label2}>YOUR ZONE ANALYSIS</Text>
-        <Text style={styles.title}>Your Zone Risk</Text>
+        <Text style={styles.label}>STEP 4 OF 4 — ZONE ANALYSIS</Text>
+        <Text style={styles.title}>Your Risk Profile</Text>
 
-        {/* Big risk badge */}
-        <View style={styles.riskCard}>
-          <View style={styles.riskScoreCircle}>
-            <Text style={styles.riskScoreText}>82</Text>
-            <Text style={styles.riskScoreLabel}>Risk Score</Text>
+        {/* Score card */}
+        <View style={styles.scoreCard}>
+          <View style={styles.scoreCircle}>
+            <Text style={styles.scoreNum}>82</Text>
+            <Text style={styles.scoreLabel}>Risk Score</Text>
           </View>
-          <View style={styles.riskCardRight}>
-            <View style={styles.highRiskBadge}>
-              <View style={styles.riskDot} />
-              <Text style={styles.highRiskText}>HIGH RISK 🔴</Text>
+          <View style={{ flex: 1 }}>
+            <View style={styles.highBadge}>
+              <View style={styles.highDot} />
+              <Text style={styles.highText}>HIGH RISK</Text>
             </View>
-            <Text style={styles.riskZone}>Sector 35</Text>
-            <Text style={styles.riskCity}>Chandigarh</Text>
+            <Text style={styles.zoneName}>Sector 35</Text>
+            <Text style={styles.cityName}>Chandigarh</Text>
           </View>
         </View>
 
         {/* Risk factors */}
         <View style={styles.factorsCard}>
-          {RISK_FACTORS.map((f, idx) => (
+          {FACTORS.map((f, idx) => (
             <View key={f.label}>
               <View style={styles.factorRow}>
                 <View style={[styles.factorIcon, { backgroundColor: f.bg }]}>
-                  <Ionicons name={f.icon as any} size={18} color={f.color} />
+                  <Ionicons name={f.icon as any} size={16} color={f.color} />
                 </View>
                 <Text style={styles.factorLabel}>{f.label}</Text>
-                <Ionicons name="checkmark-circle" size={18} color={f.color} />
+                <Ionicons name="checkmark-circle" size={16} color={f.color} />
               </View>
-              {idx < RISK_FACTORS.length - 1 && <View style={styles.factorDivider} />}
+              {idx < FACTORS.length - 1 && <View style={styles.sep} />}
             </View>
           ))}
         </View>
 
-        {/* Income loss estimate */}
-        <View style={styles.incomeLossCard}>
-          <Ionicons name="trending-down" size={20} color={Brand.danger} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.incomeLossTitle}>Avg Income Loss</Text>
-            <Text style={styles.incomeLossValue}>₹1,200 <Text style={styles.incomeLossPeriod}>/ month</Text></Text>
+        {/* Income loss */}
+        <View style={styles.incomeCard}>
+          <View>
+            <Text style={styles.incomeTitle}>Estimated Monthly Income Risk</Text>
+            <Text style={styles.incomeValue}>₹1,200</Text>
           </View>
-          <View style={styles.protectedTag}>
-            <Text style={styles.protectedTagText}>GigZo covers this</Text>
+          <View style={styles.coveredTag}>
+            <Text style={styles.coveredText}>GigZo covers this</Text>
           </View>
         </View>
       </View>
 
       {/* CTA */}
       <View style={styles.ctaSection}>
-        <TouchableOpacity style={styles.ctaBtn} onPress={handleSeePlans} activeOpacity={0.88}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={Neutral.white} />
-          <Text style={styles.ctaBtnText}>See Plans for My Zone</Text>
+        <TouchableOpacity
+          style={styles.cta}
+          onPress={() => { setOnboarded(true); router.replace('/(tabs)/plans'); }}
+        >
+          <Text style={styles.ctaText}>See Plans for My Zone</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -103,62 +93,51 @@ export default function RiskPreviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Neutral.white },
   back: { padding: Spacing.xl },
-  stepRow: { flexDirection: 'row', gap: 6, paddingHorizontal: Spacing.xl, marginBottom: Spacing.xl },
-  stepDot: { height: 4, flex: 1, borderRadius: 2 },
-
+  stepRow: { flexDirection: 'row', gap: 6, paddingHorizontal: Spacing.xl, marginBottom: Spacing.xxl },
+  step: { flex: 1, height: 3, borderRadius: 2, backgroundColor: Neutral[100] },
+  stepActive: { backgroundColor: Brand.primary },
   content: { flex: 1, paddingHorizontal: Spacing.xl },
-  label2: { fontSize: 11, fontWeight: '700', color: Brand.primary, letterSpacing: 1.2, marginBottom: 6 },
-  title: { fontSize: 28, fontWeight: '800', color: Neutral[900], letterSpacing: -0.5, marginBottom: Spacing.xl },
+  label: { fontFamily: Font.bold, fontSize: 10, color: Brand.primary, letterSpacing: 1.2, marginBottom: Spacing.sm },
+  title: { fontFamily: Font.bold, fontSize: 28, color: Neutral[900], letterSpacing: -0.4, marginBottom: Spacing.xl },
 
-  riskCard: {
+  scoreCard: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.xl,
-    backgroundColor: Brand.dangerLight,
-    borderRadius: Radius.xl, padding: Spacing.xl,
-    marginBottom: Spacing.lg,
-    borderWidth: 1, borderColor: Brand.danger + '30',
+    backgroundColor: Brand.dangerLight, borderRadius: Radius.xl,
+    padding: Spacing.xl, marginBottom: Spacing.lg,
+    borderWidth: 1, borderColor: Brand.danger + '25',
   },
-  riskScoreCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: Brand.danger,
-    alignItems: 'center', justifyContent: 'center',
+  scoreCircle: {
+    width: 76, height: 76, borderRadius: 38,
+    backgroundColor: Brand.danger, alignItems: 'center', justifyContent: 'center',
   },
-  riskScoreText: { fontSize: 26, fontWeight: '800', color: Neutral.white },
-  riskScoreLabel: { fontSize: 9, color: 'rgba(255,255,255,0.7)', fontWeight: '600', letterSpacing: 0.3 },
-  riskCardRight: { flex: 1 },
-  highRiskBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  riskDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Brand.danger },
-  highRiskText: { fontSize: 14, fontWeight: '800', color: Brand.danger },
-  riskZone: { fontSize: 20, fontWeight: '700', color: Neutral[800] },
-  riskCity: { fontSize: 13, color: Neutral[500], marginTop: 2 },
+  scoreNum: { fontFamily: Font.bold, fontSize: 26, color: Neutral.white },
+  scoreLabel: { fontFamily: Font.regular, fontSize: 9, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.3 },
+  highBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: Spacing.sm },
+  highDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: Brand.danger },
+  highText: { fontFamily: Font.bold, fontSize: 13, color: Brand.danger, letterSpacing: 0.3 },
+  zoneName: { fontFamily: Font.bold, fontSize: 20, color: Neutral[800] },
+  cityName: { fontFamily: Font.regular, fontSize: 13, color: Neutral[500], marginTop: 2 },
 
   factorsCard: {
-    backgroundColor: Neutral.white,
-    borderRadius: Radius.xl, padding: Spacing.lg,
-    marginBottom: Spacing.lg,
-    ...Shadow.sm,
+    backgroundColor: Neutral.white, borderRadius: Radius.xl, padding: Spacing.lg,
+    marginBottom: Spacing.lg, borderWidth: 1, borderColor: Neutral[100], ...Shadow.xs,
   },
   factorRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
-  factorIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  factorLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: Neutral[700] },
-  factorDivider: { height: 1, backgroundColor: Neutral[100] },
+  factorIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  factorLabel: { flex: 1, fontFamily: Font.medium, fontSize: 14, color: Neutral[700] },
+  sep: { height: StyleSheet.hairlineWidth, backgroundColor: Neutral[100] },
 
-  incomeLossCard: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    backgroundColor: Brand.dangerLight,
-    borderRadius: Radius.lg, padding: Spacing.lg,
+  incomeCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Brand.dangerLight, borderRadius: Radius.lg, padding: Spacing.lg,
+    borderWidth: 1, borderColor: Brand.danger + '25',
   },
-  incomeLossTitle: { fontSize: 12, color: Neutral[500], fontWeight: '500' },
-  incomeLossValue: { fontSize: 20, fontWeight: '800', color: Brand.danger },
-  incomeLossPeriod: { fontSize: 13, fontWeight: '500', color: Neutral[400] },
-  protectedTag: { backgroundColor: Brand.primaryLight, paddingHorizontal: 10, paddingVertical: 6, borderRadius: Radius.full },
-  protectedTagText: { fontSize: 11, fontWeight: '700', color: Brand.primary },
+  incomeTitle: { fontFamily: Font.regular, fontSize: 12, color: Neutral[500] },
+  incomeValue: { fontFamily: Font.bold, fontSize: 22, color: Brand.danger, marginTop: 2 },
+  coveredTag: { backgroundColor: Brand.primaryLight, paddingHorizontal: 12, paddingVertical: 6, borderRadius: Radius.full },
+  coveredText: { fontFamily: Font.semiBold, fontSize: 11, color: Brand.primary },
 
-  ctaSection: { padding: Spacing.xl, paddingBottom: Spacing.xl },
-  ctaBtn: {
-    backgroundColor: Brand.primary,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: Spacing.sm, paddingVertical: 16, borderRadius: Radius.lg,
-    ...Shadow.md,
-  },
-  ctaBtnText: { fontSize: 16, fontWeight: '700', color: Neutral.white },
+  ctaSection: { padding: Spacing.xl },
+  cta: { backgroundColor: Brand.primary, alignItems: 'center', paddingVertical: 16, borderRadius: Radius.lg, ...Shadow.md },
+  ctaText: { fontFamily: Font.bold, fontSize: 16, color: Neutral.white },
 });
