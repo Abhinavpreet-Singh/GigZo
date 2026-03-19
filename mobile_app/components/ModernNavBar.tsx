@@ -79,7 +79,7 @@ export function ModernNavBar({
       .toUpperCase() || "U";
 
   const textPrimary = transparent ? Neutral.white : Neutral[900];
-  const textSecondary = transparent ? "rgba(255,255,255,0.74)" : Neutral[500];
+  const textSecondary = transparent ? "rgba(255,255,255,0.84)" : Neutral[500];
 
   return (
     <>
@@ -226,8 +226,8 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   locationIconWrapTransparent: {
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.20)",
+    borderColor: "rgba(255,255,255,0.18)",
   },
   locationCopy: {
     flex: 1,
@@ -284,8 +284,8 @@ const styles = StyleSheet.create({
     ...Shadow.sm,
   },
   actionButtonTransparent: {
-    backgroundColor: "rgba(255,255,255,0.16)",
-    borderColor: "rgba(255,255,255,0.14)",
+    backgroundColor: "rgba(255,255,255,0.20)",
+    borderColor: "rgba(255,255,255,0.18)",
   },
   notificationDot: {
     position: "absolute",
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     ...Shadow.md,
   },
   profileButtonTransparent: {
-    backgroundColor: "rgba(255,255,255,0.20)",
+    backgroundColor: "rgba(255,255,255,0.24)",
   },
   profileText: {
     fontFamily: Font.bold,
