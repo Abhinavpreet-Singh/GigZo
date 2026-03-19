@@ -52,7 +52,9 @@ export default function WelcomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
       >
-        <GigzoLockup />
+        <View style={styles.brandShell}>
+          <GigzoLockup />
+        </View>
 
         <View style={styles.heroCard}>
           <View style={styles.heroGlowOne} />
@@ -124,6 +126,16 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     overflow: "hidden",
     ...Shadow.lg,
+  },
+  brandShell: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderRadius: Radius.xxl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.96)",
+    ...Shadow.sm,
   },
   heroGlowOne: {
     position: "absolute",

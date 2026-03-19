@@ -45,6 +45,17 @@ const ACTIONS = [
   },
 ] as const;
 
+const RAIN_DROPS = [
+  { left: "6%", duration: 1960, scale: 0.88 },
+  { left: "16%", duration: 1780, scale: 0.76 },
+  { left: "28%", duration: 1880, scale: 0.96 },
+  { left: "40%", duration: 2080, scale: 0.82 },
+  { left: "52%", duration: 1840, scale: 0.92 },
+  { left: "64%", duration: 1980, scale: 0.8 },
+  { left: "76%", duration: 1760, scale: 0.98 },
+  { left: "88%", duration: 2060, scale: 0.74 },
+] as const;
+
 function Reveal({
   delay = 0,
   style,
@@ -123,6 +134,70 @@ function MetricTile({
   );
 }
 
+function RainLoop() {
+  const drops = useRef(
+    RAIN_DROPS.map(() => ({
+      progress: new Animated.Value(0),
+    })),
+  ).current;
+
+  useEffect(() => {
+    drops.forEach((drop, index) => {
+      drop.progress.setValue((index + 1) / (drops.length + 1));
+    });
+
+    const animations = drops.map((drop, index) =>
+      Animated.loop(Animated.timing(drop.progress, {
+        toValue: 1,
+        duration: RAIN_DROPS[index].duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })),
+    );
+
+    animations.forEach((animation) => animation.start());
+
+    return () => {
+      animations.forEach((animation) => animation.stop());
+    };
+  }, [drops]);
+
+  return (
+    <View pointerEvents="none" style={styles.rainLayer}>
+      {RAIN_DROPS.map((drop, index) => (
+        (() => {
+          const translateY = drops[index].progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-54, 176],
+          });
+          const opacity = drops[index].progress.interpolate({
+            inputRange: [0, 0.1, 0.82, 1],
+            outputRange: [0, 0.26, 0.18, 0],
+          });
+
+          return (
+            <Animated.View
+              key={`${drop.left}-${index}`}
+              style={[
+                styles.rainDrop,
+                {
+                  left: drop.left,
+                  opacity,
+                  transform: [
+                    { translateY },
+                    { scaleY: drop.scale },
+                    { rotate: "-16deg" },
+                  ],
+                },
+              ]}
+            />
+          );
+        })()
+      ))}
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, conditions, earnings, activeClaim } = useAppStore();
@@ -147,11 +222,12 @@ export default function HomeScreen() {
       >
         <Reveal delay={40}>
           <View style={styles.heroBlock}>
-            <Text style={styles.heroEyebrow}>Protected overview</Text>
-            <Text style={styles.heroTitle}>Stay ahead of high-risk shifts.</Text>
+            <RainLoop />
+            <Text style={styles.heroEyebrow}>Live protection</Text>
+            <Text style={styles.heroTitle}>GigZo protects every shift.</Text>
             <Text style={styles.heroSub}>
-              Same data and triggers, now surfaced in a cleaner daily dashboard
-              for {user.zone}.
+              Live protection, weather triggers, and payout status for {user.zone}
+              in one cleaner home view.
             </Text>
           </View>
         </Reveal>
@@ -279,8 +355,8 @@ export default function HomeScreen() {
           <View style={styles.coverageCard}>
             <View style={styles.sectionHead}>
               <View>
-                <Text style={styles.sectionEyebrow}>Coverage this week</Text>
-                <Text style={styles.sectionTitle}>Protected earnings balance</Text>
+                <Text style={styles.coverageEyebrow}>Coverage this week</Text>
+                <Text style={styles.coverageTitle}>Protected earnings balance</Text>
               </View>
               <Text style={styles.coverageAmount}>
                 {RUPEE}
@@ -393,6 +469,8 @@ const styles = StyleSheet.create({
     gap: Spacing.lg,
   },
   heroBlock: {
+    position: "relative",
+    overflow: "hidden",
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
@@ -411,19 +489,34 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     fontFamily: Font.display,
-    fontSize: 34,
-    lineHeight: 39,
+    fontSize: 32,
+    lineHeight: 37,
     color: Neutral.white,
     letterSpacing: -1.3,
-    marginBottom: 8,
-    maxWidth: 320,
+    marginBottom: 6,
+    maxWidth: 300,
   },
   heroSub: {
     fontFamily: Font.medium,
     fontSize: 14,
     lineHeight: 21,
     color: "rgba(255,255,255,0.84)",
-    maxWidth: 330,
+    maxWidth: 320,
+  },
+  rainLayer: {
+    ...StyleSheet.absoluteFillObject,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  rainDrop: {
+    position: "absolute",
+    top: 0,
+    width: 2,
+    height: 24,
+    borderRadius: Radius.full,
+    backgroundColor: "rgba(255,255,255,0.44)",
   },
   heroCard: {
     backgroundColor: Neutral.white,
@@ -589,6 +682,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.xxl,
     padding: Spacing.xl,
     ...Shadow.lg,
+  },
+  coverageEyebrow: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.74)",
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  coverageTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 22,
+    lineHeight: 27,
+    color: Neutral.white,
+    letterSpacing: -0.7,
   },
   sectionHead: {
     flexDirection: "row",

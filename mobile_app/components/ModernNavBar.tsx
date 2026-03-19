@@ -17,6 +17,7 @@ import {
   Font,
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
+import { GigzoLogoMark } from "@/components/gigzo-ui";
 
 type ModernNavBarProps = {
   title?: string;
@@ -99,25 +100,25 @@ export function ModernNavBar({
           <View style={styles.leftBlock}>
             {showLogo ? (
               <View style={styles.locationRow}>
-                <View
-                  style={[
-                    styles.locationIconWrap,
-                    transparent && styles.locationIconWrapTransparent,
-                  ]}
-                >
-                  <Ionicons
-                    name="location"
-                    size={14}
-                    color={transparent ? Neutral.white : Brand.primary}
-                  />
-                </View>
+                <GigzoLogoMark
+                  size={34}
+                  inverted={transparent}
+                  style={styles.logoMark}
+                />
                 <View style={styles.locationCopy}>
-                  <Text
-                    style={[styles.locationLabel, { color: textSecondary }]}
-                    numberOfLines={1}
-                  >
-                    Current location
-                  </Text>
+                  <View style={styles.locationLabelRow}>
+                    <Ionicons
+                      name="location"
+                      size={11}
+                      color={transparent ? Neutral.white : Brand.primary}
+                    />
+                    <Text
+                      style={[styles.locationLabel, { color: textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      Current location
+                    </Text>
+                  </View>
                   <View style={styles.locationTitleRow}>
                     <Text
                       style={[styles.locationTitle, { color: textPrimary }]}
@@ -140,16 +141,21 @@ export function ModernNavBar({
                 </View>
               </View>
             ) : title ? (
-              <View style={styles.titleBlock}>
-                <Text style={[styles.title, { color: textPrimary }]} numberOfLines={1}>
-                  {title}
-                </Text>
-                <Text
-                  style={[styles.titleMeta, { color: textSecondary }]}
-                  numberOfLines={1}
-                >
-                  {user.zone}, {user.city}
-                </Text>
+              <View style={styles.titleRow}>
+                <View style={styles.titleBlock}>
+                  <Text
+                    style={[styles.title, { color: textPrimary }]}
+                    numberOfLines={1}
+                  >
+                    {title}
+                  </Text>
+                  <Text
+                    style={[styles.titleMeta, { color: textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {user.zone}, {user.city}
+                  </Text>
+                </View>
               </View>
             ) : null}
             {children}
@@ -196,14 +202,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   shell: {
-    minHeight: 72,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingTop: 4,
-    paddingBottom: Spacing.md,
-    gap: Spacing.md,
+    paddingTop: 2,
+    paddingBottom: 10,
+    gap: Spacing.sm,
   },
   leftBlock: {
     flex: 1,
@@ -212,55 +218,51 @@ const styles = StyleSheet.create({
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
-  locationIconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Neutral.white,
-    borderWidth: 1,
-    borderColor: "rgba(2,85,93,0.08)",
+  logoMark: {
     ...Shadow.sm,
-  },
-  locationIconWrapTransparent: {
-    backgroundColor: "rgba(255,255,255,0.20)",
-    borderColor: "rgba(255,255,255,0.18)",
   },
   locationCopy: {
     flex: 1,
     minWidth: 0,
   },
-  locationLabel: {
-    fontFamily: Font.medium,
-    fontSize: 11,
-    marginBottom: 2,
-  },
-  locationTitleRow: {
+  locationLabelRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
+  locationLabel: {
+    fontFamily: Font.medium,
+    fontSize: 10,
+    marginBottom: 1,
+  },
+  locationTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
   locationTitle: {
     flexShrink: 1,
     fontFamily: Font.display,
-    fontSize: 22,
-    letterSpacing: -0.8,
+    fontSize: 19,
+    letterSpacing: -0.6,
   },
   locationMeta: {
     fontFamily: Font.medium,
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  titleRow: {
+    minWidth: 0,
   },
   titleBlock: {
     minWidth: 0,
   },
   title: {
     fontFamily: Font.display,
-    fontSize: 28,
-    letterSpacing: -1,
+    fontSize: 24,
+    letterSpacing: -0.9,
   },
   titleMeta: {
     fontFamily: Font.medium,
@@ -270,12 +272,12 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 8,
   },
   actionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Neutral.white,
@@ -289,26 +291,29 @@ const styles = StyleSheet.create({
   },
   notificationDot: {
     position: "absolute",
-    top: 10,
-    right: 10,
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    top: 8,
+    right: 8,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: Brand.danger,
     borderWidth: 1.5,
     borderColor: Neutral.white,
   },
   profileButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Brand.primary,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.82)",
     ...Shadow.md,
   },
   profileButtonTransparent: {
-    backgroundColor: "rgba(255,255,255,0.24)",
+    backgroundColor: "rgba(255,255,255,0.30)",
+    borderColor: "rgba(255,255,255,0.92)",
   },
   profileText: {
     fontFamily: Font.bold,
@@ -320,11 +325,11 @@ const styles = StyleSheet.create({
   },
   profileDot: {
     position: "absolute",
-    right: 4,
-    bottom: 4,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    right: 3,
+    bottom: 3,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
     backgroundColor: Brand.success,
     borderWidth: 1.5,
     borderColor: Neutral.white,

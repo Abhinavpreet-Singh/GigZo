@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React, { useEffect, useRef } from "react";
-import { Platform, View, Text, StyleSheet, Animated } from "react-native";
+import { Platform, Text, StyleSheet, Animated, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand, Neutral, Font } from "@/constants/theme";
 
@@ -50,9 +50,14 @@ function TabIcon({
         { transform: [{ scale: animated.scale }], backgroundColor: activeBg },
       ]}
     >
-      <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
+      <Animated.View
+        style={[
+          styles.iconWrap,
+          focused && styles.iconWrapFocused,
+        ]}
+      >
         <Ionicons name={name} size={20} color={color} />
-      </View>
+      </Animated.View>
       <Text
         style={[
           styles.tabLabel,
@@ -75,19 +80,21 @@ export default function TabLayout() {
         tabBarActiveTintColor: Brand.primary,
         tabBarInactiveTintColor: Neutral[400],
         tabBarStyle: {
-          backgroundColor: "rgba(255,255,255,0.98)",
-          borderTopColor: "rgba(2,85,93,0.08)",
-          borderTopWidth: StyleSheet.hairlineWidth,
-          height: Platform.OS === "ios" ? 82 : 66,
-          paddingBottom: Platform.OS === "ios" ? 20 : 8,
-          paddingTop: 8,
-          paddingHorizontal: 10,
-          elevation: 18,
-          shadowColor: "#061A1C",
-          shadowOffset: { width: 0, height: -8 },
-          shadowOpacity: 0.08,
-          shadowRadius: 18,
+          backgroundColor: "transparent",
+          borderTopWidth: 0,
+          height: Platform.OS === "ios" ? 100 : 86,
+          paddingBottom: Platform.OS === "ios" ? 24 : 14,
+          paddingTop: 21,
+          paddingHorizontal: 22,
+          elevation: 0,
+          shadowOpacity: 0,
+          position: "absolute",
         },
+        tabBarBackground: () => (
+          <View style={styles.dockBackdrop}>
+            <View style={styles.dockShell} />
+          </View>
+        ),
       }}
     >
       <Tabs.Screen
@@ -155,27 +162,49 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabItem: {
     flex: 1,
-    minWidth: 70,
+    minWidth: 72,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    borderRadius: 18,
+    gap: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 24,
+    minHeight: 52,
+    marginTop: 10,
   },
   iconWrap: {
-    width: 38,
-    height: 28,
+    width: 40,
+    height: 22,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: 999,
   },
   iconWrapFocused: {
-    backgroundColor: Brand.primaryLight,
+    backgroundColor: "transparent",
   },
   tabLabel: {
     fontSize: 10.5,
     letterSpacing: 0.2,
     textAlign: "center",
+    marginTop: 1,
+  },
+  dockBackdrop: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingTop: Platform.OS === "ios" ? 8 : 6,
+    paddingBottom: Platform.OS === "ios" ? 2 : 0,
+  },
+  dockShell: {
+    height: Platform.OS === "ios" ? 72 : 64,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderWidth: 1.5,
+    borderColor: "rgba(2,85,93,0.14)",
+    shadowColor: "#061A1C",
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 24,
+    elevation: 16,
   },
 });
