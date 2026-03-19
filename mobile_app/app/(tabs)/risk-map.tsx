@@ -1,69 +1,99 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Brand, Neutral, Shadow, Radius, Spacing, Font } from '@/constants/theme';
-import { mockRiskZones } from '@/services/mockData';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import {
+  Brand,
+  Neutral,
+  Shadow,
+  Radius,
+  Spacing,
+  Font,
+} from "@/constants/theme";
+import { mockRiskZones } from "@/services/mockData";
+import { ModernNavBar } from "@/components/ModernNavBar";
 
-type RiskLevel = 'HIGH' | 'MEDIUM' | 'LOW';
+type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
 
-const riskColor = (r: RiskLevel) => ({ HIGH: Brand.danger, MEDIUM: Brand.warning, LOW: Brand.success }[r]);
-const riskBg = (r: RiskLevel) => ({ HIGH: Brand.dangerLight, MEDIUM: Brand.warningLight, LOW: Brand.successLight }[r]);
+const RUPEE = "\u20B9";
 
-// Simulated map placeholder
-function MapView({ selectedZone, onSelect }: { selectedZone: string | null; onSelect: (id: string) => void }) {
+const riskColor = (risk: RiskLevel) =>
+  ({ HIGH: Brand.danger, MEDIUM: Brand.warning, LOW: Brand.success })[risk];
+
+const riskBg = (risk: RiskLevel) =>
+  ({
+    HIGH: Brand.dangerLight,
+    MEDIUM: Brand.warningLight,
+    LOW: Brand.successLight,
+  })[risk];
+
+function MapView({
+  selectedZone,
+  onSelect,
+}: {
+  selectedZone: string | null;
+  onSelect: (id: string) => void;
+}) {
   const positions = [
-    { id: 'z1', x: 0.36, y: 0.48 },
-    { id: 'z2', x: 0.52, y: 0.26 },
-    { id: 'z3', x: 0.62, y: 0.38 },
-    { id: 'z4', x: 0.42, y: 0.72 },
-    { id: 'z5', x: 0.75, y: 0.58 },
+    { id: "z1", x: 0.24, y: 0.42 },
+    { id: "z2", x: 0.54, y: 0.2 },
+    { id: "z3", x: 0.68, y: 0.36 },
+    { id: "z4", x: 0.4, y: 0.72 },
+    { id: "z5", x: 0.8, y: 0.54 },
   ];
 
   return (
-    <View style={styles.mapWrap}>
-      {[...Array(8)].map((_, i) => (
-        <View key={i} style={[styles.gridLine, { top: `${(i + 1) * 12}%` as any }]} />
+    <View style={styles.mapCard}>
+      <View style={styles.mapGlowOne} />
+      <View style={styles.mapGlowTwo} />
+
+      {[0, 1, 2, 3, 4].map((line) => (
+        <View key={`h-${line}`} style={[styles.mapLineH, { top: 32 + line * 42 }]} />
       ))}
-      {[...Array(6)].map((_, i) => (
-        <View key={i} style={[styles.gridLineV, { left: `${(i + 1) * 16}%` as any }]} />
+      {[0, 1, 2, 3].map((line) => (
+        <View key={`v-${line}`} style={[styles.mapLineV, { left: 44 + line * 72 }]} />
       ))}
-      <View style={[styles.road, { top: '40%', left: 0, right: 0, height: 2 }]} />
-      <View style={[styles.road, { top: 0, bottom: 0, left: '45%', width: 2 }]} />
+
+      <View style={[styles.mapRoad, { top: 84, left: 18, right: 24, height: 2 }]} />
+      <View style={[styles.mapRoad, { top: 46, bottom: 28, left: "45%", width: 2 }]} />
+
       {mockRiskZones.map((zone) => {
-        const pos = positions.find((p) => p.id === zone.id);
+        const pos = positions.find((entry) => entry.id === zone.id);
         if (!pos) return null;
-        const isSelected = selectedZone === zone.id;
-        const color = riskColor(zone.risk);
+
+        const selected = selectedZone === zone.id;
         return (
           <TouchableOpacity
             key={zone.id}
-            style={[styles.pin, {
-              left: `${pos.x * 100}%` as any,
-              top: `${pos.y * 100}%` as any,
-              backgroundColor: color,
-              borderWidth: isSelected ? 3 : 0,
-              borderColor: Neutral.white,
-              transform: [{ scale: isSelected ? 1.25 : 1 }],
-            }]}
+            activeOpacity={0.9}
             onPress={() => onSelect(zone.id)}
+            style={[
+              styles.pin,
+              {
+                left: `${pos.x * 100}%`,
+                top: `${pos.y * 100}%`,
+                backgroundColor: riskColor(zone.risk),
+                transform: [{ scale: selected ? 1.2 : 1 }],
+                borderWidth: selected ? 4 : 0,
+              },
+            ]}
           >
             <Text style={styles.pinText}>{zone.risk[0]}</Text>
           </TouchableOpacity>
         );
       })}
-      {/* Legend */}
+
       <View style={styles.legend}>
-        {(['HIGH', 'MEDIUM', 'LOW'] as RiskLevel[]).map((r) => (
-          <View key={r} style={styles.legendRow}>
-            <View style={[styles.legendDot, { backgroundColor: riskColor(r) }]} />
-            <Text style={styles.legendLabel}>{r}</Text>
+        {(["HIGH", "MEDIUM", "LOW"] as RiskLevel[]).map((risk) => (
+          <View key={risk} style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: riskColor(risk) }]} />
+            <Text style={styles.legendText}>{risk}</Text>
           </View>
         ))}
       </View>
@@ -72,67 +102,117 @@ function MapView({ selectedZone, onSelect }: { selectedZone: string | null; onSe
 }
 
 export default function RiskMapScreen() {
-  const [selected, setSelected] = useState<string | null>('z1');
-  const zone = mockRiskZones.find((z) => z.id === selected);
+  const [selected, setSelected] = useState<string | null>("z1");
+  const zone = mockRiskZones.find((entry) => entry.id === selected);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Risk Map</Text>
-          <Text style={styles.headerSub}>Tap a zone to view disruption details</Text>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <ModernNavBar title="Risk Map" showLogo={false} backgroundColor={Brand.canvasStrong} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEyebrow}>Zone intelligence</Text>
+          <Text style={styles.heroTitle}>Cleaner mapping for faster risk reading.</Text>
+          <Text style={styles.heroSub}>
+            Zone data, scores, and interactions are unchanged. Only the presentation is updated.
+          </Text>
         </View>
 
         <MapView selectedZone={selected} onSelect={setSelected} />
 
-        <View style={styles.content}>
-          {/* Selected zone detail */}
-          {zone && (
-            <View style={[styles.zoneCard, { borderLeftColor: riskColor(zone.risk) }]}>
-              <View style={styles.zoneCardTop}>
-                <Text style={styles.zoneName}>{zone.name}</Text>
-                <View style={[styles.riskBadge, { backgroundColor: riskBg(zone.risk) }]}>
-                  <Text style={[styles.riskBadgeText, { color: riskColor(zone.risk) }]}>{zone.risk} RISK</Text>
-                </View>
+        {zone ? (
+          <View style={styles.card}>
+            <View style={styles.zoneHeader}>
+              <View>
+                <Text style={styles.sectionEyebrow}>Selected zone</Text>
+                <Text style={styles.zoneTitle}>{zone.name}</Text>
               </View>
-              <View style={styles.zoneStats}>
-                {[
-                  { icon: 'rainy-outline', text: '62mm avg rain / month', color: Brand.rain },
-                  { icon: 'leaf-outline', text: 'AQI peaks above 380', color: Brand.aqi },
-                  { icon: 'cash-outline', text: 'Avg ₹1,200 payouts / month', color: Brand.success },
-                ].map((s) => (
-                  <View key={s.text} style={styles.zoneStat}>
-                    <Ionicons name={s.icon as any} size={13} color={s.color} />
-                    <Text style={styles.zoneStatText}>{s.text}</Text>
-                  </View>
-                ))}
+              <View style={[styles.riskPill, { backgroundColor: riskBg(zone.risk) }]}>
+                <Text style={[styles.riskPillText, { color: riskColor(zone.risk) }]}>
+                  {zone.risk} risk
+                </Text>
               </View>
             </View>
-          )}
 
-          {/* Zone list */}
-          <Text style={[styles.listTitle, { marginTop: Spacing.xl }]}>All Zones</Text>
-          <View style={styles.zoneList}>
-            {mockRiskZones.map((z, idx) => (
-              <View key={z.id}>
-                <TouchableOpacity
-                  style={[styles.zoneRow, selected === z.id && styles.zoneRowSelected]}
-                  onPress={() => setSelected(z.id)}
-                >
-                  <View style={[styles.zoneDot, { backgroundColor: riskColor(z.risk) }]} />
-                  <Text style={styles.zoneRowName}>{z.name}</Text>
-                  <View style={[styles.riskBadge, { backgroundColor: riskBg(z.risk), marginLeft: 'auto' }]}>
-                    <Text style={[styles.riskBadgeText, { color: riskColor(z.risk) }]}>{z.risk}</Text>
+            <View style={styles.zoneStats}>
+              {[
+                {
+                  icon: "rainy-outline",
+                  title: "Rain exposure",
+                  value: "62mm avg rain / month",
+                  color: Brand.rain,
+                },
+                {
+                  icon: "leaf-outline",
+                  title: "Air quality peaks",
+                  value: "AQI often exceeds 380",
+                  color: Brand.aqi,
+                },
+                {
+                  icon: "cash-outline",
+                  title: "Average payouts",
+                  value: `${RUPEE}1,200 per month`,
+                  color: Brand.success,
+                },
+              ].map((item) => (
+                <View key={item.title} style={styles.statCard}>
+                  <View style={[styles.statIcon, { backgroundColor: `${item.color}16` }]}>
+                    <Ionicons name={item.icon as any} size={18} color={item.color} />
                   </View>
-                </TouchableOpacity>
-                {idx < mockRiskZones.length - 1 && <View style={styles.sep} />}
-              </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.statTitle}>{item.title}</Text>
+                    <Text style={styles.statValue}>{item.value}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <View style={styles.card}>
+          <Text style={styles.sectionEyebrow}>All zones</Text>
+          <Text style={styles.sectionTitle}>Browse nearby disruption hotspots</Text>
+
+          <View style={styles.zoneList}>
+            {mockRiskZones.map((riskZone) => (
+              <TouchableOpacity
+                key={riskZone.id}
+                activeOpacity={0.85}
+                onPress={() => setSelected(riskZone.id)}
+                style={[
+                  styles.zoneRow,
+                  selected === riskZone.id && styles.zoneRowSelected,
+                ]}
+              >
+                <View style={[styles.zoneDot, { backgroundColor: riskColor(riskZone.risk) }]} />
+                <Text style={styles.zoneName}>{riskZone.name}</Text>
+                <View
+                  style={[
+                    styles.rowRiskPill,
+                    { backgroundColor: riskBg(riskZone.risk) },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.rowRiskText,
+                      { color: riskColor(riskZone.risk) },
+                    ]}
+                  >
+                    {riskZone.risk}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
 
-          <View style={styles.infoCard}>
+          <View style={styles.infoStrip}>
             <Ionicons name="information-circle-outline" size={16} color={Brand.primary} />
-            <Text style={styles.infoText}>Risk scores update daily using live weather and air quality data.</Text>
+            <Text style={styles.infoText}>
+              Risk scores still update from the same weather and air-quality signals.
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -141,62 +221,257 @@ export default function RiskMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Neutral[50] },
-  header: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
-    backgroundColor: Neutral.white,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Neutral[200],
+  container: {
+    flex: 1,
+    backgroundColor: Brand.canvas,
   },
-  headerTitle: { fontFamily: Font.bold, fontSize: 26, color: Neutral[900], letterSpacing: -0.4 },
-  headerSub: { fontFamily: Font.regular, fontSize: 13, color: Neutral[500], marginTop: 4 },
-
-  mapWrap: { height: 260, backgroundColor: '#dff0ee', position: 'relative', overflow: 'hidden' },
-  gridLine: { position: 'absolute', left: 0, right: 0, height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(2,85,93,0.1)' },
-  gridLineV: { position: 'absolute', top: 0, bottom: 0, width: StyleSheet.hairlineWidth, backgroundColor: 'rgba(2,85,93,0.1)' },
-  road: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.5)' },
-  pin: {
-    position: 'absolute', width: 26, height: 26, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center', marginLeft: -13, marginTop: -13,
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 140,
+    gap: Spacing.lg,
+  },
+  heroCard: {
+    backgroundColor: Neutral.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
+  },
+  heroEyebrow: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral[500],
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  heroTitle: {
+    fontFamily: Font.display,
+    fontSize: 28,
+    lineHeight: 34,
+    color: Neutral[900],
+    letterSpacing: -0.9,
+    marginBottom: 8,
+  },
+  heroSub: {
+    fontFamily: Font.medium,
+    fontSize: 14,
+    lineHeight: 21,
+    color: Neutral[500],
+  },
+  mapCard: {
+    height: 286,
+    backgroundColor: "#DCEEEF",
+    borderRadius: Radius.xxl,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(14,94,103,0.08)",
     ...Shadow.md,
   },
-  pinText: { fontFamily: Font.bold, color: Neutral.white, fontSize: 10 },
+  mapGlowOne: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "rgba(255,255,255,0.32)",
+    top: -80,
+    right: -50,
+  },
+  mapGlowTwo: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(14,94,103,0.08)",
+    bottom: -50,
+    left: -30,
+  },
+  mapLineH: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(14,94,103,0.10)",
+  },
+  mapLineV: {
+    position: "absolute",
+    top: 20,
+    bottom: 20,
+    width: StyleSheet.hairlineWidth,
+    backgroundColor: "rgba(14,94,103,0.10)",
+  },
+  mapRoad: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.55)",
+    borderRadius: Radius.full,
+  },
+  pin: {
+    position: "absolute",
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -15,
+    marginTop: -15,
+    borderColor: Neutral.white,
+    ...Shadow.md,
+  },
+  pinText: {
+    fontFamily: Font.bold,
+    fontSize: 11,
+    color: Neutral.white,
+  },
   legend: {
-    position: 'absolute', bottom: 10, right: 10,
-    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: Radius.md, padding: Spacing.sm, gap: 4,
-    ...Shadow.xs,
+    position: "absolute",
+    right: 14,
+    bottom: 14,
+    backgroundColor: "rgba(255,255,255,0.82)",
+    borderRadius: Radius.lg,
+    padding: Spacing.sm,
+    gap: 6,
   },
-  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  legendDot: { width: 7, height: 7, borderRadius: 3.5 },
-  legendLabel: { fontFamily: Font.semiBold, fontSize: 10, color: Neutral[700] },
-
-  content: { paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl },
-  zoneCard: {
-    backgroundColor: Neutral.white, borderRadius: Radius.lg, padding: Spacing.lg,
-    borderLeftWidth: 4, ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100],
-    borderTopColor: Neutral[100], borderRightColor: Neutral[100], borderBottomColor: Neutral[100],
+  legendRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  zoneCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
-  zoneName: { fontFamily: Font.bold, fontSize: 17, color: Neutral[900] },
-  riskBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
-  riskBadgeText: { fontFamily: Font.bold, fontSize: 11, letterSpacing: 0.3 },
-  zoneStats: { gap: Spacing.sm - 2 },
-  zoneStat: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  zoneStatText: { fontFamily: Font.regular, fontSize: 13, color: Neutral[600] },
-
-  listTitle: { fontFamily: Font.bold, fontSize: 16, color: Neutral[900], marginBottom: Spacing.md },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontFamily: Font.semiBold,
+    fontSize: 10,
+    color: Neutral[700],
+  },
+  card: {
+    backgroundColor: Neutral.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
+  },
+  sectionEyebrow: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral[500],
+    letterSpacing: 1.1,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  sectionTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 22,
+    color: Neutral[900],
+    letterSpacing: -0.6,
+    marginBottom: Spacing.lg,
+  },
+  zoneHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  zoneTitle: {
+    fontFamily: Font.display,
+    fontSize: 26,
+    color: Neutral[900],
+    letterSpacing: -0.8,
+  },
+  riskPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+  },
+  riskPillText: {
+    fontFamily: Font.semiBold,
+    fontSize: 12,
+  },
+  zoneStats: {
+    gap: Spacing.sm,
+  },
+  statCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    backgroundColor: Brand.surfaceAlt,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+  },
+  statIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 13,
+    color: Neutral[900],
+    marginBottom: 2,
+  },
+  statValue: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: Neutral[500],
+  },
   zoneList: {
-    backgroundColor: Neutral.white, borderRadius: Radius.lg,
-    overflow: 'hidden', ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100],
+    gap: 10,
   },
-  zoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.lg },
-  zoneRowSelected: { backgroundColor: Brand.primaryLight },
-  zoneDot: { width: 9, height: 9, borderRadius: 4.5 },
-  zoneRowName: { fontFamily: Font.medium, fontSize: 14, color: Neutral[800] },
-  sep: { height: StyleSheet.hairlineWidth, backgroundColor: Neutral[100] },
-
-  infoCard: {
-    flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start',
-    backgroundColor: Brand.primaryLight, borderRadius: Radius.lg, padding: Spacing.md, marginTop: Spacing.lg,
+  zoneRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: Spacing.md,
+    backgroundColor: Brand.surfaceAlt,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
   },
-  infoText: { flex: 1, fontFamily: Font.regular, fontSize: 12, color: Brand.primaryDark, lineHeight: 18 },
+  zoneRowSelected: {
+    backgroundColor: Brand.primaryLight,
+  },
+  zoneDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  zoneName: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: Font.semiBold,
+    fontSize: 14,
+    color: Neutral[900],
+  },
+  rowRiskPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  rowRiskText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+  },
+  infoStrip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: Brand.surfaceTint,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    marginTop: Spacing.lg,
+  },
+  infoText: {
+    flex: 1,
+    fontFamily: Font.medium,
+    fontSize: 12,
+    lineHeight: 19,
+    color: Brand.primaryDark,
+  },
 });

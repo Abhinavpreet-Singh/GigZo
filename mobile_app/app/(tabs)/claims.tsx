@@ -1,80 +1,140 @@
-import React from 'react';
+import React from "react";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Brand, Neutral, Shadow, Radius, Spacing, Font } from '@/constants/theme';
-import { useAppStore } from '@/store/useAppStore';
-import { mockThresholds } from '@/services/mockData';
+  Brand,
+  Neutral,
+  Shadow,
+  Radius,
+  Spacing,
+  Font,
+} from "@/constants/theme";
+import { useAppStore } from "@/store/useAppStore";
+import { mockThresholds } from "@/services/mockData";
+import { ModernNavBar } from "@/components/ModernNavBar";
+
+const RUPEE = "\u20B9";
 
 function ThresholdRow({
-  label, icon, current, threshold, unit, triggered, color,
+  label,
+  icon,
+  current,
+  threshold,
+  unit,
+  triggered,
+  color,
 }: {
-  label: string; icon: React.ComponentProps<typeof Ionicons>['name'];
-  current: number; threshold: number; unit: string; triggered: boolean; color: string;
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  current: number;
+  threshold: number;
+  unit: string;
+  triggered: boolean;
+  color: string;
 }) {
-  const ratio = Math.min(current / (threshold * 1.5), 1);
-  const markerPct = Math.round((1 / 1.5) * 100);
+  const ratio = Math.min(current / (threshold * 1.4), 1);
 
   return (
-    <View style={styles.thRow}>
-      <View style={styles.thLeft}>
-        <View style={[styles.thIcon, { backgroundColor: color + '18' }]}>
-          <Ionicons name={icon} size={16} color={color} />
-        </View>
-        <Text style={styles.thLabel}>{label}</Text>
+    <View style={styles.thresholdRow}>
+      <View style={[styles.thresholdIcon, { backgroundColor: `${color}18` }]}>
+        <Ionicons name={icon} size={18} color={color} />
       </View>
 
-      <View style={styles.thTrackWrap}>
-        <View style={styles.thTrackBg}>
-          <View style={[styles.thTrackFill, { width: `${Math.round(ratio * 100)}%` as any, backgroundColor: triggered ? color : Neutral[300] }]} />
-          <View style={[styles.thMarker, { left: `${markerPct}%` as any }]} />
+      <View style={styles.thresholdBody}>
+        <View style={styles.thresholdHeader}>
+          <Text style={styles.thresholdLabel}>{label}</Text>
+          <Text
+            style={[styles.thresholdValue, { color: triggered ? color : Neutral[700] }]}
+          >
+            {current}
+            {unit}
+          </Text>
         </View>
-      </View>
 
-      <View style={styles.thRight}>
-        <Text style={[styles.thValue, { color: triggered ? color : Neutral[700] }]}>{current}{unit}</Text>
-        <Text style={styles.thLimit}>/ {threshold}{unit}</Text>
-        {triggered && (
-          <View style={[styles.triggeredTag, { backgroundColor: color + '15' }]}>
-            <Text style={[styles.triggeredText, { color }]}>TRIGGERED</Text>
-          </View>
-        )}
+        <View style={styles.thresholdTrack}>
+          <View
+            style={[
+              styles.thresholdFill,
+              {
+                width: `${Math.round(ratio * 100)}%`,
+                backgroundColor: triggered ? color : Neutral[300],
+              },
+            ]}
+          />
+          <View style={styles.thresholdMarker} />
+        </View>
+
+        <View style={styles.thresholdFoot}>
+          <Text style={styles.thresholdLimit}>
+            Trigger at {threshold}
+            {unit}
+          </Text>
+          {triggered ? (
+            <View style={[styles.triggerPill, { backgroundColor: `${color}16` }]}>
+              <Text style={[styles.triggerPillText, { color }]}>Triggered</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
-function ClaimTimeline() {
+function TimelineCard() {
   const { activeClaim } = useAppStore();
+
   if (!activeClaim) return null;
 
   return (
-    <View style={styles.timelineCard}>
+    <View style={styles.card}>
       <View style={styles.timelineHeader}>
-        <View style={[styles.typeBadge, { backgroundColor: Brand.aqiLight }]}>
-          <Text style={[styles.typeBadgeText, { color: Brand.aqi }]}>{activeClaim.type}</Text>
+        <View>
+          <Text style={styles.sectionEyebrow}>Processing now</Text>
+          <Text style={styles.timelineTitle}>
+            Claim #{activeClaim.id} is moving through verification
+          </Text>
         </View>
-        <Text style={styles.claimId}>#{activeClaim.id}</Text>
+        <View style={styles.claimTypePill}>
+          <Text style={styles.claimTypeText}>{activeClaim.type}</Text>
+        </View>
       </View>
-      <Text style={styles.claimReason}>{activeClaim.reason}</Text>
 
-      {activeClaim.steps.map((step, idx) => {
-        const isLast = idx === activeClaim.steps.length - 1;
-        return (
-          <View key={step.label} style={styles.step}>
-            <View style={styles.stepLeft}>
-              <View style={[styles.stepDot, step.done ? styles.stepDotDone : styles.stepDotPending]} />
-              {!isLast && <View style={[styles.stepLine, { backgroundColor: step.done ? Brand.primary : Neutral[200] }]} />}
+      <Text style={styles.timelineReason}>{activeClaim.reason}</Text>
+
+      <View style={styles.stepsWrap}>
+        {activeClaim.steps.map((step, index) => {
+          const isLast = index === activeClaim.steps.length - 1;
+          return (
+            <View key={step.label} style={styles.stepRow}>
+              <View style={styles.stepRail}>
+                <View
+                  style={[
+                    styles.stepDot,
+                    step.done ? styles.stepDotDone : styles.stepDotPending,
+                  ]}
+                />
+                {!isLast ? (
+                  <View
+                    style={[
+                      styles.stepLine,
+                      step.done && styles.stepLineDone,
+                    ]}
+                  />
+                ) : null}
+              </View>
+              <View style={styles.stepCopy}>
+                <Text style={[styles.stepLabel, !step.done && styles.stepLabelPending]}>
+                  {step.label}
+                </Text>
+                <Text style={styles.stepMeta}>
+                  {step.done ? "Completed" : "Waiting for next action"}
+                </Text>
+              </View>
             </View>
-            <Text style={[styles.stepLabel, { color: step.done ? Neutral[800] : Neutral[400] }]}>{step.label}</Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -83,108 +143,330 @@ export default function ClaimsScreen() {
   const { activeClaim } = useAppStore();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Auto Claims</Text>
-          <Text style={styles.headerSub}>Payouts triggered automatically — no forms needed</Text>
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
+      <ModernNavBar title="Claims" showLogo={false} backgroundColor={Brand.canvasStrong} />
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.heroCard}>
+          <Text style={styles.heroEyebrow}>Auto payouts</Text>
+          <Text style={styles.heroTitle}>
+            No forms. No back-and-forth. Just status you can understand.
+          </Text>
+          <Text style={styles.heroSub}>
+            The claim engine behavior is unchanged. This screen only improves clarity and layout.
+          </Text>
         </View>
 
-        {activeClaim && (
+        {activeClaim ? (
           <View style={styles.activeBanner}>
-            <View style={styles.activeDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.activeBannerTitle}>1 claim in progress</Text>
-              <Text style={styles.activeBannerSub}>₹{activeClaim.amount} pending payout</Text>
+            <View style={styles.activeBannerIcon}>
+              <Ionicons name="flash" size={18} color={Brand.warning} />
             </View>
-            <Ionicons name="flash" size={18} color={Brand.warning} />
+            <View style={styles.activeBannerCopy}>
+              <Text style={styles.activeBannerTitle}>1 active claim detected</Text>
+              <Text style={styles.activeBannerSub}>
+                Pending payout of {RUPEE}
+                {activeClaim.amount}
+              </Text>
+            </View>
           </View>
-        )}
+        ) : null}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Live Payout Thresholds</Text>
-          <Text style={styles.sectionSub}>Auto-triggers when readings exceed limits</Text>
-          <View style={styles.thCard}>
-            {mockThresholds.map((t, idx) => (
-              <View key={t.id}>
-                <ThresholdRow
-                  label={t.label}
-                  icon={t.icon as React.ComponentProps<typeof Ionicons>['name']}
-                  current={t.current}
-                  threshold={t.threshold}
-                  unit={t.unit}
-                  triggered={t.triggered}
-                  color={t.color}
-                />
-                {idx < mockThresholds.length - 1 && <View style={styles.divider} />}
-              </View>
+        <View style={styles.card}>
+          <Text style={styles.sectionEyebrow}>Thresholds</Text>
+          <Text style={styles.sectionTitle}>Live triggers across your zone</Text>
+          <Text style={styles.sectionSub}>
+            Claims still trigger automatically once a reading crosses its configured limit.
+          </Text>
+
+          <View style={styles.thresholdList}>
+            {mockThresholds.map((threshold) => (
+              <ThresholdRow
+                key={threshold.id}
+                label={threshold.label}
+                icon={threshold.icon as React.ComponentProps<typeof Ionicons>["name"]}
+                current={threshold.current}
+                threshold={threshold.threshold}
+                unit={threshold.unit}
+                triggered={threshold.triggered}
+                color={threshold.color}
+              />
             ))}
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Processing Now</Text>
-          <ClaimTimeline />
-        </View>
+        <TimelineCard />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Neutral[50] },
-
-  header: {
-    paddingHorizontal: Spacing.xl, paddingTop: Spacing.xl, paddingBottom: Spacing.lg,
+  container: {
+    flex: 1,
+    backgroundColor: Brand.canvas,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: 140,
+    gap: Spacing.lg,
+  },
+  heroCard: {
     backgroundColor: Neutral.white,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Neutral[200],
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
   },
-  headerTitle: { fontFamily: Font.bold, fontSize: 26, color: Neutral[900], letterSpacing: -0.4 },
-  headerSub: { fontFamily: Font.regular, fontSize: 13, color: Neutral[500], marginTop: 4 },
-
+  heroEyebrow: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral[500],
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  heroTitle: {
+    fontFamily: Font.display,
+    fontSize: 28,
+    lineHeight: 34,
+    color: Neutral[900],
+    letterSpacing: -0.9,
+    marginBottom: 8,
+  },
+  heroSub: {
+    fontFamily: Font.medium,
+    fontSize: 14,
+    lineHeight: 21,
+    color: Neutral[500],
+  },
   activeBanner: {
-    margin: Spacing.xl, marginBottom: 0,
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    gap: Spacing.md,
     backgroundColor: Brand.warningLight,
-    borderRadius: Radius.lg, padding: Spacing.lg,
-    borderWidth: 1, borderColor: '#fde68a',
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: "#F2D49B",
   },
-  activeDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Brand.warning },
-  activeBannerTitle: { fontFamily: Font.semiBold, fontSize: 14, color: '#92400e' },
-  activeBannerSub: { fontFamily: Font.regular, fontSize: 12, color: '#b45309', marginTop: 2 },
-
-  section: { paddingHorizontal: Spacing.xl, marginTop: Spacing.xl },
-  sectionTitle: { fontFamily: Font.bold, fontSize: 16, color: Neutral[900], marginBottom: 3 },
-  sectionSub: { fontFamily: Font.regular, fontSize: 12, color: Neutral[400], marginBottom: Spacing.md },
-
-  thCard: { backgroundColor: Neutral.white, borderRadius: Radius.lg, padding: Spacing.lg, ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100] },
-  thRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
-  thLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, width: 100 },
-  thIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  thLabel: { fontFamily: Font.medium, fontSize: 12, color: Neutral[700], flex: 1 },
-  thTrackWrap: { flex: 1 },
-  thTrackBg: { height: 7, backgroundColor: Neutral[100], borderRadius: 3.5, position: 'relative', overflow: 'hidden' },
-  thTrackFill: { height: '100%', borderRadius: 3.5, position: 'absolute', left: 0, top: 0 },
-  thMarker: { position: 'absolute', top: 0, bottom: 0, width: 2, backgroundColor: Neutral[400] },
-  thRight: { width: 88, alignItems: 'flex-end', gap: 2 },
-  thValue: { fontFamily: Font.bold, fontSize: 13 },
-  thLimit: { fontFamily: Font.regular, fontSize: 10, color: Neutral[400] },
-  triggeredTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  triggeredText: { fontFamily: Font.bold, fontSize: 9, letterSpacing: 0.4 },
-  divider: { height: StyleSheet.hairlineWidth, backgroundColor: Neutral[200] },
-
-  timelineCard: { backgroundColor: Neutral.white, borderRadius: Radius.lg, padding: Spacing.lg, ...Shadow.xs, borderWidth: 1, borderColor: Neutral[100] },
-  timelineHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
-  typeBadgeText: { fontFamily: Font.bold, fontSize: 11, letterSpacing: 0.4 },
-  claimId: { fontFamily: Font.medium, fontSize: 12, color: Neutral[400] },
-  claimReason: { fontFamily: Font.regular, fontSize: 12, color: Neutral[500], marginBottom: Spacing.lg },
-
-  step: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, minHeight: 36 },
-  stepLeft: { alignItems: 'center', width: 20 },
-  stepDot: { width: 20, height: 20, borderRadius: 10 },
-  stepDotDone: { backgroundColor: Brand.primary },
-  stepDotPending: { backgroundColor: Neutral[200], borderWidth: 2, borderColor: Neutral[300] },
-  stepLine: { width: 2, flex: 1, minHeight: 16 },
-  stepLabel: { fontFamily: Font.medium, fontSize: 14, paddingTop: 2 },
+  activeBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  activeBannerCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  activeBannerTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 15,
+    color: "#724508",
+  },
+  activeBannerSub: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: "#8B5A0C",
+  },
+  card: {
+    backgroundColor: Neutral.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
+  },
+  sectionEyebrow: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral[500],
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  sectionTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 22,
+    color: Neutral[900],
+    letterSpacing: -0.6,
+    marginBottom: 6,
+  },
+  sectionSub: {
+    fontFamily: Font.medium,
+    fontSize: 13,
+    lineHeight: 20,
+    color: Neutral[500],
+  },
+  thresholdList: {
+    marginTop: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  thresholdRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    alignItems: "flex-start",
+  },
+  thresholdIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  thresholdBody: {
+    flex: 1,
+    gap: 10,
+  },
+  thresholdHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  thresholdLabel: {
+    fontFamily: Font.semiBold,
+    fontSize: 15,
+    color: Neutral[900],
+  },
+  thresholdValue: {
+    fontFamily: Font.display,
+    fontSize: 16,
+  },
+  thresholdTrack: {
+    height: 10,
+    borderRadius: Radius.full,
+    backgroundColor: Neutral[100],
+    overflow: "hidden",
+    position: "relative",
+  },
+  thresholdFill: {
+    height: "100%",
+    borderRadius: Radius.full,
+  },
+  thresholdMarker: {
+    position: "absolute",
+    left: "71%",
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: Neutral[400],
+  },
+  thresholdFoot: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  thresholdLimit: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: Neutral[500],
+  },
+  triggerPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.full,
+  },
+  triggerPillText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+  },
+  timelineHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  timelineTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 20,
+    lineHeight: 25,
+    color: Neutral[900],
+    letterSpacing: -0.5,
+  },
+  claimTypePill: {
+    alignSelf: "flex-start",
+    backgroundColor: Brand.aqiLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+  },
+  claimTypeText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Brand.aqi,
+  },
+  timelineReason: {
+    fontFamily: Font.medium,
+    fontSize: 13,
+    lineHeight: 20,
+    color: Neutral[500],
+    marginBottom: Spacing.lg,
+  },
+  stepsWrap: {
+    gap: 4,
+  },
+  stepRow: {
+    flexDirection: "row",
+    gap: Spacing.md,
+    minHeight: 56,
+  },
+  stepRail: {
+    alignItems: "center",
+    width: 18,
+  },
+  stepDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    marginTop: 2,
+  },
+  stepDotDone: {
+    backgroundColor: Brand.primary,
+  },
+  stepDotPending: {
+    backgroundColor: Neutral[100],
+    borderWidth: 2,
+    borderColor: Neutral[300],
+  },
+  stepLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: Neutral[200],
+    marginTop: 6,
+  },
+  stepLineDone: {
+    backgroundColor: Brand.primary,
+  },
+  stepCopy: {
+    flex: 1,
+    paddingBottom: Spacing.md,
+  },
+  stepLabel: {
+    fontFamily: Font.semiBold,
+    fontSize: 15,
+    color: Neutral[900],
+    marginBottom: 4,
+  },
+  stepLabelPending: {
+    color: Neutral[500],
+  },
+  stepMeta: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: Neutral[500],
+  },
 });
