@@ -57,9 +57,6 @@ Our solution focuses on **Food Delivery Partners** working on platforms such as:
 
 * Zomato
 * Swiggy
-* Zepto
-* Blinkit
-* Amazon Delivery
 
 These workers typically earn income on a daily or weekly basis and depend on consistent working hours.
 
