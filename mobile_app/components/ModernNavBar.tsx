@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,12 +13,10 @@ import {
   Brand,
   Neutral,
   Shadow,
-  Radius,
   Spacing,
   Font,
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { GigzoLockup } from "./gigzo-ui";
 
 type ModernNavBarProps = {
   title?: string;
@@ -31,27 +28,58 @@ type ModernNavBarProps = {
   children?: React.ReactNode;
 };
 
+function ActionButton({
+  icon,
+  onPress,
+  transparent,
+  showDot = false,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  onPress?: () => void;
+  transparent: boolean;
+  showDot?: boolean;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.82}
+      onPress={onPress}
+      style={[
+        styles.actionButton,
+        transparent && styles.actionButtonTransparent,
+      ]}
+    >
+      <Ionicons
+        name={icon}
+        size={18}
+        color={transparent ? Neutral.white : Neutral[700]}
+      />
+      {showDot ? <View style={styles.notificationDot} /> : null}
+    </TouchableOpacity>
+  );
+}
+
 export function ModernNavBar({
   title,
   showLogo = true,
   showNotifications = true,
   showProfile = true,
-  backgroundColor = Neutral.white,
+  backgroundColor = Brand.canvasStrong,
   transparent = false,
   children,
 }: ModernNavBarProps) {
   const router = useRouter();
   const { user } = useAppStore();
 
-  const navBarStyle = [
-    styles.navbar,
-    {
-      backgroundColor: transparent ? "transparent" : backgroundColor,
-      borderBottomWidth: transparent ? 0 : StyleSheet.hairlineWidth,
-      borderBottomColor: transparent ? "transparent" : Neutral[200],
-    },
-    transparent && styles.transparentNav,
-  ];
+  const initials =
+    user?.name
+      ?.split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "U";
+
+  const textPrimary = transparent ? Neutral.white : Neutral[900];
+  const textSecondary = transparent ? "rgba(255,255,255,0.74)" : Neutral[500];
 
   return (
     <>
@@ -60,74 +88,102 @@ export function ModernNavBar({
         backgroundColor={transparent ? "transparent" : backgroundColor}
         translucent={transparent}
       />
-      <SafeAreaView edges={["top"]} style={navBarStyle}>
-        <View style={styles.navContent}>
-          {/* Left section - Logo or Title */}
-          <View style={styles.leftSection}>
+      <SafeAreaView
+        edges={["top"]}
+        style={[
+          styles.safeArea,
+          { backgroundColor: transparent ? "transparent" : backgroundColor },
+        ]}
+      >
+        <View style={styles.shell}>
+          <View style={styles.leftBlock}>
             {showLogo ? (
-              <GigzoLockup compact style={styles.lockup} />
+              <View style={styles.locationRow}>
+                <View
+                  style={[
+                    styles.locationIconWrap,
+                    transparent && styles.locationIconWrapTransparent,
+                  ]}
+                >
+                  <Ionicons
+                    name="location"
+                    size={14}
+                    color={transparent ? Neutral.white : Brand.primary}
+                  />
+                </View>
+                <View style={styles.locationCopy}>
+                  <Text
+                    style={[styles.locationLabel, { color: textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    Current location
+                  </Text>
+                  <View style={styles.locationTitleRow}>
+                    <Text
+                      style={[styles.locationTitle, { color: textPrimary }]}
+                      numberOfLines={1}
+                    >
+                      {user.zone}
+                    </Text>
+                    <Ionicons
+                      name="chevron-down"
+                      size={14}
+                      color={transparent ? Neutral.white : Neutral[500]}
+                    />
+                  </View>
+                  <Text
+                    style={[styles.locationMeta, { color: textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {user.city} • {user.platform}
+                  </Text>
+                </View>
+              </View>
             ) : title ? (
-              <Text
-                style={[styles.pageTitle, transparent && styles.pageTitleLight]}
-              >
-                {title}
-              </Text>
+              <View style={styles.titleBlock}>
+                <Text style={[styles.title, { color: textPrimary }]} numberOfLines={1}>
+                  {title}
+                </Text>
+                <Text
+                  style={[styles.titleMeta, { color: textSecondary }]}
+                  numberOfLines={1}
+                >
+                  {user.zone}, {user.city}
+                </Text>
+              </View>
             ) : null}
             {children}
           </View>
 
-          {/* Right section - Notifications & Profile */}
-          <View style={styles.rightSection}>
-            {showNotifications && (
-              <TouchableOpacity
-                style={[
-                  styles.actionButton,
-                  transparent && styles.actionButtonTransparent,
-                ]}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="notifications-outline"
-                  size={20}
-                  color={transparent ? Neutral.white : Neutral[700]}
-                />
-                <View style={styles.notificationDot} />
-              </TouchableOpacity>
-            )}
+          <View style={styles.actionsRow}>
+            {showNotifications ? (
+              <ActionButton
+                icon="notifications-outline"
+                transparent={transparent}
+                showDot
+              />
+            ) : null}
 
-            {showProfile && (
+            {showProfile ? (
               <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => router.push("/(tabs)/profile")}
                 style={[
                   styles.profileButton,
                   transparent && styles.profileButtonTransparent,
                 ]}
-                onPress={() => router.push("/(tabs)/profile")}
-                activeOpacity={0.8}
               >
-                <View
+                <Text
                   style={[
-                    styles.profileAvatar,
-                    transparent && styles.profileAvatarTransparent,
+                    styles.profileText,
+                    transparent && styles.profileTextTransparent,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.avatarText,
-                      transparent && styles.avatarTextTransparent,
-                    ]}
-                  >
-                    {user?.name
-                      ?.split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .slice(0, 2) || "U"}
-                  </Text>
-                </View>
-                {user?.isProtected && (
-                  <View style={styles.protectedIndicator} />
-                )}
+                  {initials}
+                </Text>
+                {user?.isProtected ? <View style={styles.profileDot} /> : null}
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         </View>
       </SafeAreaView>
@@ -136,161 +192,141 @@ export function ModernNavBar({
 }
 
 const styles = StyleSheet.create({
-  navbar: {
-    backgroundColor: Neutral.white,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: Neutral[200],
-    ...Platform.select({
-      ios: {
-        ...Shadow.sm,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  safeArea: {
+    zIndex: 10,
   },
-
-  transparentNav: {
-    backgroundColor: "rgba(255,255,255,0.92)",
-    backdropFilter: "blur(16px)",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.3)",
-    ...Platform.select({
-      ios: {
-        ...Shadow.md,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  navContent: {
+  shell: {
+    minHeight: 72,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    minHeight: 60,
-  },
-
-  leftSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-
-  rightSection: {
-    flexDirection: "row",
-    alignItems: "center",
+    paddingTop: 4,
+    paddingBottom: Spacing.md,
     gap: Spacing.md,
   },
-
-  lockup: {
+  leftBlock: {
     flex: 1,
+    minWidth: 0,
   },
-
-  pageTitle: {
-    fontFamily: Font.bold,
-    fontSize: 22,
-    color: Neutral[900],
-    letterSpacing: -0.4,
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-
-  pageTitleLight: {
-    color: Neutral.white,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-
-  actionButton: {
-    position: "relative",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: Neutral[50],
+  locationIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: Neutral.white,
     borderWidth: 1,
-    borderColor: Neutral[200],
-    ...Shadow.xs,
-  },
-
-  actionButtonTransparent: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderColor: "rgba(255,255,255,0.25)",
-    backdropFilter: "blur(12px)",
+    borderColor: "rgba(2,85,93,0.08)",
     ...Shadow.sm,
   },
-
+  locationIconWrapTransparent: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+  locationCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  locationLabel: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+    marginBottom: 2,
+  },
+  locationTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  locationTitle: {
+    flexShrink: 1,
+    fontFamily: Font.display,
+    fontSize: 22,
+    letterSpacing: -0.8,
+  },
+  locationMeta: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  titleBlock: {
+    minWidth: 0,
+  },
+  title: {
+    fontFamily: Font.display,
+    fontSize: 28,
+    letterSpacing: -1,
+  },
+  titleMeta: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  actionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Neutral.white,
+    borderWidth: 1,
+    borderColor: "rgba(2,85,93,0.08)",
+    ...Shadow.sm,
+  },
+  actionButtonTransparent: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderColor: "rgba(255,255,255,0.14)",
+  },
   notificationDot: {
     position: "absolute",
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
+    top: 10,
+    right: 10,
+    width: 7,
+    height: 7,
     borderRadius: 4,
     backgroundColor: Brand.danger,
     borderWidth: 1.5,
     borderColor: Neutral.white,
-    ...Shadow.xs,
   },
-
   profileButton: {
-    position: "relative",
-    borderRadius: 26,
-    padding: 2,
-  },
-
-  profileButtonTransparent: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 28,
-    padding: 3,
-  },
-
-  profileAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Brand.primary,
+    width: 42,
+    height: 42,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: Neutral.white,
+    backgroundColor: Brand.primary,
     ...Shadow.md,
   },
-
-  profileAvatarTransparent: {
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderColor: "rgba(255,255,255,0.4)",
-    backdropFilter: "blur(12px)",
+  profileButtonTransparent: {
+    backgroundColor: "rgba(255,255,255,0.20)",
   },
-
-  avatarText: {
+  profileText: {
     fontFamily: Font.bold,
-    fontSize: 17,
+    fontSize: 14,
     color: Neutral.white,
-    letterSpacing: 0.5,
   },
-
-  avatarTextTransparent: {
+  profileTextTransparent: {
     color: Neutral.white,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
-
-  protectedIndicator: {
+  profileDot: {
     position: "absolute",
-    bottom: 2,
-    right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    right: 4,
+    bottom: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: Brand.success,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: Neutral.white,
-    ...Shadow.sm,
   },
 });

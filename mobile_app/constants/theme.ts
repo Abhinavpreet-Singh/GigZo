@@ -22,9 +22,11 @@ export const Brand = {
   floodLight: "#ede9fe",
   // Enhanced properties
   canvas: "#fafbfc",
+  canvasStrong: "#f3f7f7",
   line: "#e2e5e9",
   surface: "#ffffff",
   surfaceAlt: "#f8f9fa",
+  surfaceTint: "#eef7f7",
 } as const;
 
 export const Neutral = {
@@ -67,6 +69,7 @@ export const Font = {
   medium: "Inter-Medium",
   semiBold: "Inter-SemiBold",
   bold: "Inter-Bold",
+  display: "Inter-Bold",
 };
 
 // Legacy export for compatibility

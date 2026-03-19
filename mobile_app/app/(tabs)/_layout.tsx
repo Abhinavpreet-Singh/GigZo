@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
-import React from "react";
-import { Platform, View, Text, StyleSheet } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Platform, View, Text, StyleSheet, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Brand, Neutral, Font } from "@/constants/theme";
 
@@ -17,27 +17,52 @@ function TabIcon({
   focused: boolean;
   label: string;
 }) {
+  const animated = useRef({
+    scale: new Animated.Value(focused ? 1 : 0.96),
+    tint: new Animated.Value(focused ? 1 : 0),
+  }).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(animated.scale, {
+        toValue: focused ? 1 : 0.96,
+        useNativeDriver: false,
+        speed: 18,
+        bounciness: 6,
+      }),
+      Animated.timing(animated.tint, {
+        toValue: focused ? 1 : 0,
+        duration: 180,
+        useNativeDriver: false,
+      }),
+    ]).start();
+  }, [animated, focused]);
+
+  const activeBg = animated.tint.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(2,85,93,0)", "rgba(2,85,93,0.10)"],
+  });
+
   return (
-    <View style={[styles.tabItem, focused && styles.tabItemFocused]}>
-      <View
-        style={[styles.iconContainer, focused && styles.iconContainerFocused]}
-      >
-        <Ionicons name={name} size={24} color={color} />
+    <Animated.View
+      style={[
+        styles.tabItem,
+        { transform: [{ scale: animated.scale }], backgroundColor: activeBg },
+      ]}
+    >
+      <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
+        <Ionicons name={name} size={20} color={color} />
       </View>
       <Text
         style={[
           styles.tabLabel,
-          {
-            color,
-            fontFamily: focused ? Font.semiBold : Font.medium,
-            opacity: focused ? 1 : 0.7,
-          },
+          { color, fontFamily: focused ? Font.semiBold : Font.medium },
         ]}
         numberOfLines={1}
       >
         {label}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -50,20 +75,18 @@ export default function TabLayout() {
         tabBarActiveTintColor: Brand.primary,
         tabBarInactiveTintColor: Neutral[400],
         tabBarStyle: {
-          backgroundColor: Neutral.white,
-          borderTopColor: Neutral[100],
+          backgroundColor: "rgba(255,255,255,0.98)",
+          borderTopColor: "rgba(2,85,93,0.08)",
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: Platform.OS === "ios" ? 88 : 70,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
-          paddingTop: 10,
-          paddingHorizontal: 16,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
+          height: Platform.OS === "ios" ? 82 : 66,
+          paddingBottom: Platform.OS === "ios" ? 20 : 8,
+          paddingTop: 8,
+          paddingHorizontal: 10,
+          elevation: 18,
+          shadowColor: "#061A1C",
+          shadowOffset: { width: 0, height: -8 },
           shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 16,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
+          shadowRadius: 18,
         },
       }}
     >
@@ -122,7 +145,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          href: null, // Hide from tab bar
+          href: null,
         }}
       />
     </Tabs>
@@ -131,38 +154,28 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabItem: {
+    flex: 1,
+    minWidth: 70,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-    flex: 1,
+    gap: 3,
     paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 14,
-    marginHorizontal: 2,
-    minWidth: 70,
+    paddingHorizontal: 6,
+    borderRadius: 18,
   },
-
-  tabItemFocused: {
-    backgroundColor: Brand.primaryLight + "50",
-  },
-
-  iconContainer: {
-    width: 44,
-    height: 34,
+  iconWrap: {
+    width: 38,
+    height: 28,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 12,
   },
-
-  iconContainerFocused: {
+  iconWrapFocused: {
     backgroundColor: Brand.primaryLight,
   },
-
   tabLabel: {
     fontSize: 10.5,
     letterSpacing: 0.2,
     textAlign: "center",
-    fontWeight: "500",
-    marginTop: 2,
   },
 });
