@@ -595,14 +595,6 @@ Team Dive Into Infinity
 
 ---
 
-# Hackathon
-
-Built for **Guidewire DEVTrails University Hackathon 2026**
-
-A startup-style hackathon focused on building AI-powered insurance solutions for real-world problems.
-
----
-
 # Vision
 
 GigZo aims to build a financial safety net for gig workers by combining artificial intelligence, real-time data, and parametric insurance models.
