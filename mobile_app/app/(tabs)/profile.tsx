@@ -50,8 +50,17 @@ const SETTINGS = [
   },
 ] as const;
 
+const TYPE_ICONS: Record<
+  PayoutType,
+  React.ComponentProps<typeof Ionicons>["name"]
+> = {
+  RAIN: "rainy",
+  AQI: "leaf",
+  FLOOD: "water",
+};
+
 const typeIcon = (type: PayoutType): React.ComponentProps<typeof Ionicons>["name"] =>
-  ({ RAIN: "rainy", AQI: "leaf", FLOOD: "water" })[type];
+  TYPE_ICONS[type];
 
 const statusColor = (status: PayoutStatus) => {
   switch (status) {
