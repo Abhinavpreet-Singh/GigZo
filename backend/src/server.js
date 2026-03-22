@@ -3,6 +3,7 @@ dotenv.config();
 
 import app from "./app.js";
 import mongoose from "mongoose";
+<<<<<<< HEAD
 import { initializeFirebaseAdmin } from "./config/firebase.js";
 
 const PORT = process.env.PORT || 5000;
@@ -15,6 +16,11 @@ for (const key of ["MONGO_URI", "JWT_SECRET"]) {
 
 initializeFirebaseAdmin();
 
+=======
+
+const PORT = process.env.PORT || 5000;
+
+>>>>>>> e4d510c (Implement user profile module with schema, controller, and routes)
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     console.log("MongoDB Connected");
