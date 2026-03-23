@@ -1,66 +1,41 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
-const userSchema = new mongoose.Schema({
-  personalDetails: {
-    name: {
+const userSchema = new mongoose.Schema(
+  {
+    firebaseUid: {
       type: String,
-      required: true
+      required: true,
+      unique: true,
+      index: true,
     },
     phone: {
       type: String,
-      required: true
+      required: true,
+      unique: true,
+      index: true,
     },
-    age: {
-      type: Number,
-      required: true
-    }
-  },
-
-  platformDetails: {
+    name: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     platform: {
       type: String,
-      enum: ["Zomato", "Swiggy"],
-      required: true
+      default: null,
+      trim: true,
     },
-    workerId: {
-      type: String,
-      required: true
-    },
-    type: {
-      type: String,
-      enum: ["full-time", "part-time"],
-      required: true
-    }
-  },
-
-  locationDetails: {
     city: {
       type: String,
-      required: true
+      default: null,
+      trim: true,
     },
-    pincode: {
-      type: String,
-      required: true
+    lastLoginAt: {
+      type: Date,
+      default: Date.now,
     },
-    workingArea: {
-      type: String,
-      required: true
-    }
   },
+  { timestamps: true }
+);
 
-  workDetails: {
-    workingHoursPerDay: {
-      type: Number,
-      required: true
-    }
-  },
-
-  earningDetails: {
-    avgDailyEarning: {
-      type: Number
-    }
-  }
-
-}, { timestamps: true });
-
-module.exports = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema);
+export default User;

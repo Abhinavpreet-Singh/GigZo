@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
+import {
+  PhoneAuthProvider,
+  signInWithCredential,
+} from "firebase/auth";
 import {
   Brand,
   Neutral,
@@ -21,13 +27,29 @@ import {
   Shadow,
 } from "@/constants/theme";
 import { GigzoLockup } from "@/components/gigzo-ui";
+import { auth, firebaseConfig } from "@/services/firebaseAuth";
+import { firebaseLogin } from "@/services/authApi";
+import { setAccessToken } from "@/services/authStorage";
 
 export default function OTPScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [verificationId, setVerificationId] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const refs = useRef<(TextInput | null)[]>([]);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+
+  const normalizedPhone = useMemo(() => {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length !== 10) {
+      return "";
+    }
+
+    return `+91${digits}`;
+  }, [phone]);
 
   const handleOtpChange = (text: string, idx: number) => {
     const newOtp = [...otp];
@@ -36,8 +58,66 @@ export default function OTPScreen() {
     if (text && idx < 5) refs.current[idx + 1]?.focus();
   };
 
+  const handleSendOtp = async () => {
+    if (!normalizedPhone || !recaptchaVerifier.current) {
+      Alert.alert("Invalid phone", "Enter a valid 10 digit phone number.");
+      return;
+    }
+
+    try {
+      setIsSendingOtp(true);
+      const provider = new PhoneAuthProvider(auth);
+      const newVerificationId = await provider.verifyPhoneNumber(
+        normalizedPhone,
+        recaptchaVerifier.current
+      );
+      setVerificationId(newVerificationId);
+      setOtpSent(true);
+      Alert.alert("OTP sent", `Code sent to ${normalizedPhone}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to send OTP.";
+      Alert.alert("Send OTP failed", message);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otp.join("");
+    if (!verificationId || code.length !== 6) {
+      Alert.alert("Invalid OTP", "Enter the 6 digit OTP sent to your phone.");
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+      const credential = PhoneAuthProvider.credential(verificationId, code);
+      const userCredential = await signInWithCredential(auth, credential);
+      const idToken = await userCredential.user.getIdToken();
+      const loginResult = await firebaseLogin(idToken);
+      await setAccessToken(loginResult.accessToken);
+      router.push("/onboarding/profile");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to verify OTP.";
+      Alert.alert("Verify OTP failed", message);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtp(["", "", "", "", "", ""]);
+    await handleSendOtp();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -89,10 +169,16 @@ export default function OTPScreen() {
                   />
                 </View>
                 <TouchableOpacity
-                  style={[styles.cta, phone.length < 10 && styles.ctaDisabled]}
-                  onPress={() => phone.length >= 10 && setOtpSent(true)}
+                  style={[
+                    styles.cta,
+                    (!normalizedPhone || isSendingOtp) && styles.ctaDisabled,
+                  ]}
+                  onPress={handleSendOtp}
+                  disabled={!normalizedPhone || isSendingOtp}
                 >
-                  <Text style={styles.ctaText}>Send OTP</Text>
+                  <Text style={styles.ctaText}>
+                    {isSendingOtp ? "Sending..." : "Send OTP"}
+                  </Text>
                 </TouchableOpacity>
               </>
             ) : (
@@ -113,12 +199,15 @@ export default function OTPScreen() {
                   ))}
                 </View>
                 <TouchableOpacity
-                  style={styles.cta}
-                  onPress={() => router.push("/onboarding/profile")}
+                  style={[styles.cta, isVerifyingOtp && styles.ctaDisabled]}
+                  onPress={handleVerifyOtp}
+                  disabled={isVerifyingOtp}
                 >
-                  <Text style={styles.ctaText}>Verify and Continue</Text>
+                  <Text style={styles.ctaText}>
+                    {isVerifyingOtp ? "Verifying..." : "Verify and Continue"}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => {}} style={styles.resend}>
+                <TouchableOpacity onPress={handleResendOtp} style={styles.resend}>
                   <Text style={styles.resendText}>Resend code</Text>
                 </TouchableOpacity>
               </>
