@@ -27,9 +27,11 @@ import { GigzoLockup } from "@/components/gigzo-ui";
 import { auth, firebaseConfig } from "@/services/firebaseAuth";
 import { firebaseLogin } from "@/services/authApi";
 import { setAccessToken } from "@/services/authStorage";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function OTPScreen() {
   const router = useRouter();
+  const { setUser } = useAppStore();
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -94,6 +96,13 @@ export default function OTPScreen() {
       const idToken = await userCredential.user.getIdToken();
       const loginResult = await firebaseLogin(idToken);
       await setAccessToken(loginResult.accessToken);
+      setUser({
+        id: loginResult.user.id,
+        phone: loginResult.user.phone,
+        name: loginResult.user.name || "",
+        platform: loginResult.user.platform || "Zomato",
+        city: loginResult.user.city || "",
+      });
       router.push("/onboarding/profile");
     } catch (error) {
       const message =

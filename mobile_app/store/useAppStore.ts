@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import {
   mockUser,
   mockLiveConditions,
@@ -7,14 +7,24 @@ import {
   mockActiveClaim,
   mockPayoutHistory,
   mockHistoryStats,
-} from '@/services/mockData';
+} from "@/services/mockData";
 
-type Plan = 'basic' | 'pro' | null;
-type HistoryFilter = 'ALL' | 'RAIN' | 'AQI' | 'FLOOD';
+type Plan = "basic" | "pro" | null;
+type HistoryFilter = "ALL" | "RAIN" | "AQI" | "FLOOD";
+
+type AppUser = typeof mockUser & {
+  workerId?: string | null;
+  type?: "full-time" | "part-time" | null;
+  pincode?: string | null;
+  workingArea?: string | null;
+  workingHoursPerDay?: number | null;
+  avgDailyEarning?: number | null;
+  age?: number | null;
+};
 
 interface AppState {
   // User
-  user: typeof mockUser;
+  user: AppUser;
   isOnboarded: boolean;
 
   // Live data
@@ -35,6 +45,7 @@ interface AppState {
   setSelectedPlan: (plan: Plan) => void;
   setHistoryFilter: (filter: HistoryFilter) => void;
   setOnboarded: (val: boolean) => void;
+  setUser: (user: Partial<AppUser>) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -43,13 +54,14 @@ export const useAppStore = create<AppState>((set) => ({
   conditions: mockLiveConditions,
   earnings: mockEarnings,
   alert: mockAlert,
-  selectedPlan: 'pro' as Plan,
+  selectedPlan: "pro" as Plan,
   activeClaim: mockActiveClaim,
-  historyFilter: 'ALL' as HistoryFilter,
+  historyFilter: "ALL" as HistoryFilter,
   payoutHistory: mockPayoutHistory,
   historyStats: mockHistoryStats,
 
   setSelectedPlan: (plan) => set({ selectedPlan: plan }),
   setHistoryFilter: (filter) => set({ historyFilter: filter }),
   setOnboarded: (val) => set({ isOnboarded: val }),
+  setUser: (user) => set((state) => ({ user: { ...state.user, ...user } })),
 }));

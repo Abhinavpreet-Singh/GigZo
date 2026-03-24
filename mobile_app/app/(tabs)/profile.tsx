@@ -59,8 +59,9 @@ const TYPE_ICONS: Record<
   FLOOD: "water",
 };
 
-const typeIcon = (type: PayoutType): React.ComponentProps<typeof Ionicons>["name"] =>
-  TYPE_ICONS[type];
+const typeIcon = (
+  type: PayoutType,
+): React.ComponentProps<typeof Ionicons>["name"] => TYPE_ICONS[type];
 
 const statusColor = (status: PayoutStatus) => {
   switch (status) {
@@ -120,22 +121,29 @@ function HistoryItem({
 }
 
 export default function ProfileScreen() {
-  const { user, historyFilter, setHistoryFilter, payoutHistory } = useAppStore();
+  const { user, historyFilter, setHistoryFilter, payoutHistory } =
+    useAppStore();
 
   const filtered =
     historyFilter === "ALL"
       ? payoutHistory
       : payoutHistory.filter((item) => item.type === historyFilter);
 
-  const initials = user.name
+  const initials = (user.name || "Gig Worker")
     .split(" ")
     .map((part) => part[0])
     .join("")
-    .slice(0, 2);
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ModernNavBar title="Profile" showLogo={false} showProfile={false} backgroundColor={Brand.canvasStrong} />
+      <ModernNavBar
+        title="Profile"
+        showLogo={false}
+        showProfile={false}
+        backgroundColor={Brand.canvasStrong}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -188,7 +196,9 @@ export default function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionEyebrow}>Payout history</Text>
-          <Text style={styles.sectionTitle}>Clean record of every protection event</Text>
+          <Text style={styles.sectionTitle}>
+            Clean record of every protection event
+          </Text>
 
           <ScrollView
             horizontal
@@ -230,15 +240,27 @@ export default function ProfileScreen() {
 
           <View style={styles.settingList}>
             {SETTINGS.map((setting) => (
-              <TouchableOpacity key={setting.label} activeOpacity={0.85} style={styles.settingRow}>
+              <TouchableOpacity
+                key={setting.label}
+                activeOpacity={0.85}
+                style={styles.settingRow}
+              >
                 <View style={styles.settingIcon}>
-                  <Ionicons name={setting.icon} size={18} color={Brand.primary} />
+                  <Ionicons
+                    name={setting.icon}
+                    size={18}
+                    color={Brand.primary}
+                  />
                 </View>
                 <View style={styles.settingCopy}>
                   <Text style={styles.settingLabel}>{setting.label}</Text>
                   <Text style={styles.settingSub}>{setting.sub}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={Neutral[400]} />
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={Neutral[400]}
+                />
               </TouchableOpacity>
             ))}
           </View>

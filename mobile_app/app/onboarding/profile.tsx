@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -19,6 +20,8 @@ import {
   Shadow,
 } from "@/constants/theme";
 import { GigzoLockup } from "@/components/gigzo-ui";
+import { useAppStore } from "@/store/useAppStore";
+import { updateMyProfile } from "@/services/userApi";
 
 const PLATFORMS = ["Zomato", "Swiggy", "Zepto", "Blinkit", "Amazon"];
 const CITIES = [
@@ -32,10 +35,93 @@ const CITIES = [
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [platform, setPlatform] = useState("");
-  const [city, setCity] = useState("");
-  const canContinue = name.length > 2 && platform && city;
+  const { setUser, user } = useAppStore();
+  const [name, setName] = useState(user.name || "");
+  const [platform, setPlatform] = useState(user.platform || "");
+  const [city, setCity] = useState(user.city || "");
+  const [zone, setZone] = useState(user.zone || "");
+  const [type, setType] = useState<"full-time" | "part-time" | "">(
+    user.type || "",
+  );
+  const [workerId, setWorkerId] = useState(user.workerId || "");
+  const [pincode, setPincode] = useState(user.pincode || "");
+  const [workingArea, setWorkingArea] = useState(user.workingArea || "");
+  const [age, setAge] = useState(user.age ? String(user.age) : "");
+  const [workingHoursPerDay, setWorkingHoursPerDay] = useState(
+    user.workingHoursPerDay ? String(user.workingHoursPerDay) : "",
+  );
+  const [avgDailyEarning, setAvgDailyEarning] = useState(
+    user.avgDailyEarning ? String(user.avgDailyEarning) : "",
+  );
+  const [coveragePerDay, setCoveragePerDay] = useState(
+    user.coveragePerDay ? String(user.coveragePerDay) : "",
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const canContinue =
+    name.trim().length > 2 &&
+    Boolean(platform) &&
+    Boolean(city) &&
+    Boolean(zone.trim()) &&
+    Boolean(type);
+
+  const handleSaveAndContinue = async () => {
+    if (!canContinue || isSaving) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const profile = await updateMyProfile({
+        name: name.trim(),
+        platform: platform as
+          | "Zomato"
+          | "Swiggy"
+          | "Zepto"
+          | "Blinkit"
+          | "Amazon",
+        city: city.trim(),
+        zone: zone.trim(),
+        type: type as "full-time" | "part-time",
+        workerId: workerId.trim() || undefined,
+        pincode: pincode.trim() || undefined,
+        workingArea: workingArea.trim() || undefined,
+        age: age ? Number(age) : undefined,
+        workingHoursPerDay: workingHoursPerDay
+          ? Number(workingHoursPerDay)
+          : undefined,
+        avgDailyEarning: avgDailyEarning ? Number(avgDailyEarning) : undefined,
+        coveragePerDay: coveragePerDay ? Number(coveragePerDay) : undefined,
+      });
+
+      setUser({
+        id: profile.id,
+        phone: profile.phone,
+        name: profile.name || user.name,
+        platform: profile.platform || user.platform,
+        city: profile.city || user.city,
+        zone: profile.zone || user.zone,
+        coveragePerDay: profile.coveragePerDay || user.coveragePerDay,
+        activePlan: profile.activePlan || user.activePlan,
+        isProtected: profile.isProtected,
+        workerId: profile.workerId,
+        type: profile.type,
+        pincode: profile.pincode,
+        workingArea: profile.workingArea,
+        age: profile.age,
+        workingHoursPerDay: profile.workingHoursPerDay,
+        avgDailyEarning: profile.avgDailyEarning,
+      });
+
+      router.push("/onboarding/risk-preview");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to save profile.";
+      Alert.alert("Save profile failed", message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
@@ -72,6 +158,36 @@ export default function ProfileScreen() {
               onChangeText={setName}
               placeholderTextColor={Neutral[300]}
             />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Worker Type</Text>
+            <View style={styles.chips}>
+              {[
+                { label: "Full-time", value: "full-time" },
+                { label: "Part-time", value: "part-time" },
+              ].map((option) => (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[
+                    styles.chip,
+                    type === option.value && styles.chipActive,
+                  ]}
+                  onPress={() =>
+                    setType(option.value as "full-time" | "part-time")
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      type === option.value && styles.chipTextActive,
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
 
           {/* Platform */}
@@ -120,27 +236,109 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Delivery Zone */}
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Delivery Partner ID</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. ZO-145782"
+              value={workerId}
+              onChangeText={setWorkerId}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Age</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 24"
+              keyboardType="number-pad"
+              value={age}
+              onChangeText={setAge}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Pincode</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 160036"
+              keyboardType="number-pad"
+              value={pincode}
+              onChangeText={setPincode}
+              maxLength={6}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Working Area</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. IT Park - Zirakpur stretch"
+              value={workingArea}
+              onChangeText={setWorkingArea}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Working Hours / Day</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 10"
+              keyboardType="number-pad"
+              value={workingHoursPerDay}
+              onChangeText={setWorkingHoursPerDay}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Average Daily Earning (INR)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 1200"
+              keyboardType="number-pad"
+              value={avgDailyEarning}
+              onChangeText={setAvgDailyEarning}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.fieldLabel}>Coverage Needed / Day (INR)</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. 500"
+              keyboardType="number-pad"
+              value={coveragePerDay}
+              onChangeText={setCoveragePerDay}
+              placeholderTextColor={Neutral[300]}
+            />
+          </View>
+
           <View style={styles.field}>
             <Text style={styles.fieldLabel}>Delivery Zone</Text>
-            <TouchableOpacity style={styles.mapBtn}>
-              <Ionicons name="map-outline" size={16} color={Brand.primary} />
-              <Text style={styles.mapBtnText}>Select zone on map</Text>
-              <Ionicons
-                name="chevron-forward"
-                size={14}
-                color={Neutral[300]}
-                style={{ marginLeft: "auto" }}
-              />
-            </TouchableOpacity>
+            <TextInput
+              style={styles.textInput}
+              placeholder="e.g. Sector 35"
+              value={zone}
+              onChangeText={setZone}
+              placeholderTextColor={Neutral[300]}
+            />
           </View>
         </View>
 
         <TouchableOpacity
           style={[styles.cta, !canContinue && styles.ctaDisabled]}
-          onPress={() => canContinue && router.push("/onboarding/risk-preview")}
+          onPress={handleSaveAndContinue}
+          disabled={!canContinue || isSaving}
         >
-          <Text style={styles.ctaText}>Continue</Text>
+          <Text style={styles.ctaText}>
+            {isSaving ? "Saving..." : "Continue"}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
