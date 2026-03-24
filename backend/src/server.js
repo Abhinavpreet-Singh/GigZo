@@ -2,15 +2,23 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import app from "./app.js";
-import mongoose from "mongoose";
+import { sequelize } from "./db/index.js";
 
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(process.env.MONGO_URI)
+// Sync database and start server
+sequelize
+  .authenticate()
   .then(() => {
-    console.log("MongoDB Connected");
+    console.log("PostgreSQL Connected");
+    return sequelize.sync({ alter: false });
+  })
+  .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   })
-  .catch(err => console.log(err));
+  .catch((err) => {
+    console.error("Database connection error:", err);
+    process.exit(1);
+  });

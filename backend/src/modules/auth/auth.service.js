@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../../models/user.model.js";
 import { verifyFirebaseIdToken } from "../../config/firebase.js";
+import { Op } from "sequelize";
 
 function normalizeIndianPhone(phoneNumber) {
   if (!phoneNumber || typeof phoneNumber !== "string") {
@@ -41,7 +42,9 @@ export async function loginWithFirebaseToken(idToken) {
   }
 
   let user = await User.findOne({
-    $or: [{ firebaseUid }, { phone: normalizedPhone }],
+    where: {
+      [Op.or]: [{ firebaseUid }, { phone: normalizedPhone }],
+    },
   });
 
   if (!user) {
@@ -59,18 +62,18 @@ export async function loginWithFirebaseToken(idToken) {
 
   const accessToken = jwt.sign(
     {
-      userId: user._id.toString(),
+      userId: user.id,
       phone: user.phone,
       firebaseUid: user.firebaseUid,
     },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
+    { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 
   return {
     accessToken,
     user: {
-      id: user._id.toString(),
+      id: user.id,
       phone: user.phone,
       name: user.name,
       platform: user.platform,
@@ -82,7 +85,7 @@ export async function loginWithFirebaseToken(idToken) {
 }
 
 export async function getProfileByUserId(userId) {
-  const user = await User.findById(userId).lean();
+  const user = await User.findByPk(userId);
   if (!user) {
     const error = new Error("User not found.");
     error.statusCode = 404;
@@ -90,11 +93,14 @@ export async function getProfileByUserId(userId) {
   }
 
   return {
-    id: user._id.toString(),
+    id: user.id,
     phone: user.phone,
     name: user.name,
     platform: user.platform,
     city: user.city,
+    zone: user.zone,
+    age: user.age,
+    type: user.type,
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };

@@ -1,66 +1,95 @@
-const mongoose = require("mongoose");
+import { DataTypes } from "sequelize";
+import sequelize from "../db/index.js";
 
-const userSchema = new mongoose.Schema({
-  personalDetails: {
-    name: {
-      type: String,
-      required: true
+const User = sequelize.define(
+  "User",
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    firebaseUid: {
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: true,
+      index: true,
     },
     phone: {
-      type: String,
-      required: true
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: false,
+      index: true,
+    },
+    name: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     age: {
-      type: Number,
-      required: true
-    }
-  },
-
-  platformDetails: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     platform: {
-      type: String,
-      enum: ["Zomato", "Swiggy"],
-      required: true
+      type: DataTypes.ENUM("Zomato", "Swiggy", "Zepto", "Blinkit", "Amazon"),
+      allowNull: true,
     },
     workerId: {
-      type: String,
-      required: true
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
     },
     type: {
-      type: String,
-      enum: ["full-time", "part-time"],
-      required: true
-    }
-  },
-
-  locationDetails: {
+      type: DataTypes.ENUM("full-time", "part-time"),
+      allowNull: true,
+    },
     city: {
-      type: String,
-      required: true
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     pincode: {
-      type: String,
-      required: true
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     workingArea: {
-      type: String,
-      required: true
-    }
-  },
-
-  workDetails: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     workingHoursPerDay: {
-      type: Number,
-      required: true
-    }
-  },
-
-  earningDetails: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
     avgDailyEarning: {
-      type: Number
-    }
-  }
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    zone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    coveragePerDay: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    activePlan: {
+      type: DataTypes.ENUM("basic", "pro"),
+      allowNull: true,
+      defaultValue: "basic",
+    },
+    isProtected: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    lastLoginAt: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+  },
+  {
+    timestamps: true,
+    tableName: "users",
+  },
+);
 
-}, { timestamps: true });
-
-module.exports = mongoose.model("User", userSchema);
+export default User;
