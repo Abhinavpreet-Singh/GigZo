@@ -1,8 +1,35 @@
 import admin from "firebase-admin";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 let initialized = false;
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const backendRoot = path.resolve(__dirname, "../../");
+
+function resolveServiceAccountPath(serviceAccountFile) {
+  if (path.isAbsolute(serviceAccountFile)) {
+    return serviceAccountFile;
+  }
+
+  const fromCwd = path.resolve(process.cwd(), serviceAccountFile);
+  if (fs.existsSync(fromCwd)) {
+    return fromCwd;
+  }
+
+  return path.resolve(backendRoot, serviceAccountFile);
+}
+
 function parseServiceAccount() {
+  const serviceAccountFile = process.env.FIREBASE_SERVICE_ACCOUNT_FILE;
+  if (serviceAccountFile) {
+    const filePath = resolveServiceAccountPath(serviceAccountFile);
+    const json = fs.readFileSync(filePath, "utf-8");
+    return JSON.parse(json);
+  }
+
   const inlineJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (inlineJson) {
     return JSON.parse(inlineJson);
@@ -14,7 +41,7 @@ function parseServiceAccount() {
 
   if (!projectId || !clientEmail || !privateKeyRaw) {
     throw new Error(
-      "Firebase Admin credentials are missing. Set FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY."
+      "Firebase Admin credentials are missing. Set FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
     );
   }
 

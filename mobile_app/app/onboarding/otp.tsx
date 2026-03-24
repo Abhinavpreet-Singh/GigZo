@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,10 +8,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
+import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import {
   Brand,
   Neutral,
@@ -21,10 +24,20 @@ import {
   Shadow,
 } from "@/constants/theme";
 import { GigzoLockup } from "@/components/gigzo-ui";
+import { auth, firebaseConfig } from "@/services/firebaseAuth";
+import { firebaseLogin } from "@/services/authApi";
+import { setAccessToken } from "@/services/authStorage";
 
 export default function OTPScreen() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [verificationId, setVerificationId] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const refs = useRef<(TextInput | null)[]>([]);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
 
   const normalizedPhone = useMemo(() => {
     const digits = phone.replace(/\D/g, "");
@@ -35,8 +48,73 @@ export default function OTPScreen() {
     return `+91${digits}`;
   }, [phone]);
 
+  const handleOtpChange = (text: string, idx: number) => {
+    const newOtp = [...otp];
+    newOtp[idx] = text;
+    setOtp(newOtp);
+    if (text && idx < 5) refs.current[idx + 1]?.focus();
+  };
+
+  const handleSendOtp = async () => {
+    if (!normalizedPhone || !recaptchaVerifier.current) {
+      Alert.alert("Invalid phone", "Enter a valid 10 digit phone number.");
+      return;
+    }
+
+    try {
+      setIsSendingOtp(true);
+      const provider = new PhoneAuthProvider(auth);
+      const newVerificationId = await provider.verifyPhoneNumber(
+        normalizedPhone,
+        recaptchaVerifier.current,
+      );
+      setVerificationId(newVerificationId);
+      setOtpSent(true);
+      Alert.alert("OTP sent", `Code sent to ${normalizedPhone}`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to send OTP.";
+      Alert.alert("Send OTP failed", message);
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const code = otp.join("");
+    if (!verificationId || code.length !== 6) {
+      Alert.alert("Invalid OTP", "Enter the 6 digit OTP sent to your phone.");
+      return;
+    }
+
+    try {
+      setIsVerifyingOtp(true);
+      const credential = PhoneAuthProvider.credential(verificationId, code);
+      const userCredential = await signInWithCredential(auth, credential);
+      const idToken = await userCredential.user.getIdToken();
+      const loginResult = await firebaseLogin(idToken);
+      await setAccessToken(loginResult.accessToken);
+      router.push("/onboarding/profile");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to verify OTP.";
+      Alert.alert("Verify OTP failed", message);
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setOtp(["", "", "", "", "", ""]);
+    await handleSendOtp();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <FirebaseRecaptchaVerifierModal
+        ref={recaptchaVerifier}
+        firebaseConfig={firebaseConfig}
+      />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
@@ -64,28 +142,76 @@ export default function OTPScreen() {
 
           <View style={styles.content}>
             <Text style={styles.label}>STEP 1 OF 4</Text>
-            <Text style={styles.title}>Phone Number</Text>
-            <Text style={styles.sub}>Add your contact number to continue</Text>
+            <Text style={styles.title}>
+              {otpSent ? "Enter OTP" : "Phone Number"}
+            </Text>
+            <Text style={styles.sub}>
+              {otpSent
+                ? `Code sent to +91 ${phone}`
+                : "We will send a verification code"}
+            </Text>
 
-            <View style={styles.phoneInput}>
-              <Text style={styles.prefix}>+91</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="98765 43210"
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
-                maxLength={10}
-                placeholderTextColor={Neutral[300]}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.cta, !normalizedPhone && styles.ctaDisabled]}
-              onPress={() => router.push("/onboarding/profile")}
-              disabled={!normalizedPhone}
-            >
-              <Text style={styles.ctaText}>Continue</Text>
-            </TouchableOpacity>
+            {!otpSent ? (
+              <>
+                <View style={styles.phoneInput}>
+                  <Text style={styles.prefix}>+91</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="98765 43210"
+                    keyboardType="phone-pad"
+                    value={phone}
+                    onChangeText={setPhone}
+                    maxLength={10}
+                    placeholderTextColor={Neutral[300]}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.cta,
+                    (!normalizedPhone || isSendingOtp) && styles.ctaDisabled,
+                  ]}
+                  onPress={handleSendOtp}
+                  disabled={!normalizedPhone || isSendingOtp}
+                >
+                  <Text style={styles.ctaText}>
+                    {isSendingOtp ? "Sending..." : "Send OTP"}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.otpRow}>
+                  {otp.map((d, idx) => (
+                    <TextInput
+                      key={idx}
+                      ref={(r) => {
+                        refs.current[idx] = r;
+                      }}
+                      style={[styles.otpBox, d && styles.otpBoxFilled]}
+                      maxLength={1}
+                      keyboardType="number-pad"
+                      value={d}
+                      onChangeText={(t) => handleOtpChange(t, idx)}
+                    />
+                  ))}
+                </View>
+                <TouchableOpacity
+                  style={[styles.cta, isVerifyingOtp && styles.ctaDisabled]}
+                  onPress={handleVerifyOtp}
+                  disabled={isVerifyingOtp}
+                >
+                  <Text style={styles.ctaText}>
+                    {isVerifyingOtp ? "Verifying..." : "Verify and Continue"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleResendOtp}
+                  style={styles.resend}
+                >
+                  <Text style={styles.resendText}>Resend code</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -159,6 +285,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Neutral[900],
   },
+  otpRow: { flexDirection: "row", gap: Spacing.sm, marginBottom: Spacing.xl },
+  otpBox: {
+    flex: 1,
+    height: 54,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Neutral[200],
+    textAlign: "center",
+    fontFamily: Font.bold,
+    fontSize: 22,
+    color: Neutral[900],
+    backgroundColor: Neutral[50],
+  },
+  otpBoxFilled: {
+    borderColor: Brand.primary,
+    backgroundColor: Brand.primaryLight,
+  },
   cta: {
     backgroundColor: Brand.primary,
     alignItems: "center",
@@ -169,4 +312,6 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: Neutral[200] },
   ctaText: { fontFamily: Font.bold, fontSize: 16, color: Neutral.white },
+  resend: { alignItems: "center", marginTop: Spacing.lg },
+  resendText: { fontFamily: Font.medium, fontSize: 13, color: Brand.primary },
 });

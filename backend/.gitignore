@@ -78,6 +78,9 @@ web_modules/
 
 # dotenv environment variable files
 .env
+
+# Firebase service account credentials
+*firebase-adminsdk*.json
 .env.development.local
 .env.test.local
 .env.production.local
