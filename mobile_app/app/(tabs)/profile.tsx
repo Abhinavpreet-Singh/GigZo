@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   View,
   Text,
   ScrollView,
@@ -19,6 +20,10 @@ import {
 import { useAppStore } from "@/store/useAppStore";
 import { mockHistoryStats } from "@/services/mockData";
 import { ModernNavBar } from "@/components/ModernNavBar";
+import { useRouter } from "expo-router";
+import { clearAccessToken } from "@/services/authStorage";
+import { auth } from "@/services/firebaseAuth";
+import { signOut as firebaseSignOut } from "firebase/auth";
 
 type HistoryFilter = "ALL" | "RAIN" | "AQI" | "FLOOD";
 type PayoutType = "RAIN" | "AQI" | "FLOOD";
@@ -121,8 +126,30 @@ function HistoryItem({
 }
 
 export default function ProfileScreen() {
-  const { user, historyFilter, setHistoryFilter, payoutHistory } =
+  const router = useRouter();
+  const { user, historyFilter, setHistoryFilter, payoutHistory, resetSession } =
     useAppStore();
+
+  const handleSignOut = () => {
+    Alert.alert("Sign out", "Do you want to sign out from this device?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await clearAccessToken();
+            await firebaseSignOut(auth);
+          } catch (_error) {
+            // Ignore provider sign-out errors and still reset local session.
+          } finally {
+            resetSession();
+            router.replace("/onboarding/welcome");
+          }
+        },
+      },
+    ]);
+  };
 
   const filtered =
     historyFilter === "ALL"
@@ -156,9 +183,12 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.profileCopy}>
-              <Text style={styles.profileName}>{user.name}</Text>
+              <Text style={styles.profileName}>
+                {user.name || "Gig Worker"}
+              </Text>
               <Text style={styles.profileSub}>
-                {user.platform} rider {"\u2022"} {user.zone}
+                {(user.platform || "Gig") + " rider"} {"\u2022"}{" "}
+                {user.zone || "No zone"}
               </Text>
               <Text style={styles.profilePhone}>{user.phone}</Text>
             </View>
@@ -238,6 +268,29 @@ export default function ProfileScreen() {
           <Text style={styles.sectionEyebrow}>Settings</Text>
           <Text style={styles.sectionTitle}>Account tools and support</Text>
 
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.editProfileCta}
+            onPress={() => router.push("/(tabs)/edit-profile")}
+          >
+            <View style={styles.editProfileLeft}>
+              <View style={styles.editProfileIcon}>
+                <Ionicons
+                  name="create-outline"
+                  size={18}
+                  color={Neutral.white}
+                />
+              </View>
+              <View>
+                <Text style={styles.editProfileTitle}>Edit profile</Text>
+                <Text style={styles.editProfileSub}>
+                  Update rider details and work info
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Neutral.white} />
+          </TouchableOpacity>
+
           <View style={styles.settingList}>
             {SETTINGS.map((setting) => (
               <TouchableOpacity
@@ -266,7 +319,11 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <TouchableOpacity activeOpacity={0.86} style={styles.signOutButton}>
+        <TouchableOpacity
+          activeOpacity={0.86}
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+        >
           <Ionicons name="log-out-outline" size={16} color={Brand.danger} />
           <Text style={styles.signOutText}>Sign out</Text>
         </TouchableOpacity>
@@ -420,6 +477,40 @@ const styles = StyleSheet.create({
     color: Neutral[900],
     letterSpacing: -0.6,
     marginBottom: Spacing.lg,
+  },
+  editProfileCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Brand.primary,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  editProfileLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  editProfileIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+  },
+  editProfileTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 14,
+    color: Neutral.white,
+  },
+  editProfileSub: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 1,
   },
   filterRow: {
     gap: Spacing.sm,

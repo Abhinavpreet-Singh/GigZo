@@ -11,11 +11,7 @@ import {
   Spacing,
   Font,
 } from "@/constants/theme";
-import {
-  GigzoBackdrop,
-  GigzoButton,
-  GigzoLockup,
-} from "@/components/gigzo-ui";
+import { GigzoBackdrop, GigzoButton, GigzoLockup } from "@/components/gigzo-ui";
 
 const FEATURES = [
   {
@@ -62,12 +58,17 @@ export default function WelcomeScreen() {
 
           <View style={styles.heroBadge}>
             <Ionicons name="sparkles-outline" size={14} color={Neutral.white} />
-            <Text style={styles.heroBadgeText}>Income protection for gig workers</Text>
+            <Text style={styles.heroBadgeText}>
+              Income protection for gig workers
+            </Text>
           </View>
 
-          <Text style={styles.title}>Trusted cover, seamless earnings care.</Text>
+          <Text style={styles.title}>
+            Trusted cover, seamless earnings care.
+          </Text>
           <Text style={styles.sub}>
-            Same onboarding, same data, same payouts. Just a cleaner visual experience built around the original teal brand.
+            Same onboarding, same data, same payouts. Just a cleaner visual
+            experience built around the original teal brand.
           </Text>
 
           <View style={styles.heroStats}>
@@ -85,8 +86,14 @@ export default function WelcomeScreen() {
         <View style={styles.featureList}>
           {FEATURES.map((feature) => (
             <View key={feature.title} style={styles.featureItem}>
-              <View style={[styles.featureIcon, { backgroundColor: feature.bg }]}>
-                <Ionicons name={feature.icon as any} size={18} color={feature.color} />
+              <View
+                style={[styles.featureIcon, { backgroundColor: feature.bg }]}
+              >
+                <Ionicons
+                  name={feature.icon as any}
+                  size={18}
+                  color={feature.color}
+                />
               </View>
               <View style={styles.featureCopy}>
                 <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -102,7 +109,15 @@ export default function WelcomeScreen() {
             icon="arrow-forward"
             onPress={() => router.push("/onboarding/otp")}
           />
-          <Text style={styles.note}>Join 50,000+ gig workers already protected</Text>
+          <GigzoButton
+            label="Continue with email"
+            secondary
+            icon="mail-outline"
+            onPress={() => router.push("/onboarding/email")}
+          />
+          <Text style={styles.note}>
+            Join 50,000+ gig workers already protected
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

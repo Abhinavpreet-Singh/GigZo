@@ -24,6 +24,19 @@ function normalizeIndianPhone(phoneNumber) {
   return null;
 }
 
+function getUserIdentifier(decodedToken) {
+  const normalizedPhone = normalizeIndianPhone(decodedToken.phone_number);
+  if (normalizedPhone) {
+    return normalizedPhone;
+  }
+
+  if (decodedToken.email && typeof decodedToken.email === "string") {
+    return `email:${decodedToken.email.toLowerCase()}`;
+  }
+
+  return null;
+}
+
 export async function loginWithFirebaseToken(idToken) {
   if (!idToken || typeof idToken !== "string") {
     const error = new Error("Firebase idToken is required.");
@@ -33,29 +46,35 @@ export async function loginWithFirebaseToken(idToken) {
 
   const decoded = await verifyFirebaseIdToken(idToken);
   const firebaseUid = decoded.uid;
-  const normalizedPhone = normalizeIndianPhone(decoded.phone_number);
+  const userIdentifier = getUserIdentifier(decoded);
 
-  if (!normalizedPhone) {
-    const error = new Error("Phone number is missing in Firebase token.");
+  if (!userIdentifier) {
+    const error = new Error(
+      "Phone number or email is missing in Firebase token.",
+    );
     error.statusCode = 400;
     throw error;
   }
 
   let user = await User.findOne({
     where: {
-      [Op.or]: [{ firebaseUid }, { phone: normalizedPhone }],
+      [Op.or]: [{ firebaseUid }, { phone: userIdentifier }],
     },
   });
 
   if (!user) {
     user = await User.create({
       firebaseUid,
-      phone: normalizedPhone,
+      phone: userIdentifier,
+      name: decoded.name || null,
       lastLoginAt: new Date(),
     });
   } else {
     user.firebaseUid = firebaseUid;
-    user.phone = normalizedPhone;
+    user.phone = userIdentifier;
+    if (!user.name && decoded.name) {
+      user.name = decoded.name;
+    }
     user.lastLoginAt = new Date();
     await user.save();
   }

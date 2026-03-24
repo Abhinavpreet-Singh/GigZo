@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createJSONStorage, persist } from "zustand/middleware";
 import {
   mockUser,
   mockLiveConditions,
@@ -22,10 +24,23 @@ type AppUser = typeof mockUser & {
   age?: number | null;
 };
 
+function sanitizePhoneForUi(value: unknown) {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  if (value.startsWith("email:")) {
+    return value.slice("email:".length);
+  }
+
+  return value;
+}
+
 interface AppState {
   // User
   user: AppUser;
   isOnboarded: boolean;
+  hasHydrated: boolean;
 
   // Live data
   conditions: typeof mockLiveConditions;
@@ -46,22 +61,57 @@ interface AppState {
   setHistoryFilter: (filter: HistoryFilter) => void;
   setOnboarded: (val: boolean) => void;
   setUser: (user: Partial<AppUser>) => void;
+  resetSession: () => void;
+  setHasHydrated: (value: boolean) => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
-  user: mockUser,
-  isOnboarded: false, // false = show onboarding flow
-  conditions: mockLiveConditions,
-  earnings: mockEarnings,
-  alert: mockAlert,
-  selectedPlan: "pro" as Plan,
-  activeClaim: mockActiveClaim,
-  historyFilter: "ALL" as HistoryFilter,
-  payoutHistory: mockPayoutHistory,
-  historyStats: mockHistoryStats,
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
+      user: mockUser,
+      isOnboarded: false,
+      hasHydrated: false,
+      conditions: mockLiveConditions,
+      earnings: mockEarnings,
+      alert: mockAlert,
+      selectedPlan: "pro" as Plan,
+      activeClaim: mockActiveClaim,
+      historyFilter: "ALL" as HistoryFilter,
+      payoutHistory: mockPayoutHistory,
+      historyStats: mockHistoryStats,
 
-  setSelectedPlan: (plan) => set({ selectedPlan: plan }),
-  setHistoryFilter: (filter) => set({ historyFilter: filter }),
-  setOnboarded: (val) => set({ isOnboarded: val }),
-  setUser: (user) => set((state) => ({ user: { ...state.user, ...user } })),
-}));
+      setSelectedPlan: (plan) => set({ selectedPlan: plan }),
+      setHistoryFilter: (filter) => set({ historyFilter: filter }),
+      setOnboarded: (val) => set({ isOnboarded: val }),
+      setUser: (user) =>
+        set((state) => ({
+          user: {
+            ...state.user,
+            ...user,
+            phone: sanitizePhoneForUi(user.phone) || state.user.phone,
+          },
+        })),
+      resetSession: () =>
+        set({
+          user: mockUser,
+          isOnboarded: false,
+          selectedPlan: "pro",
+          historyFilter: "ALL",
+        }),
+      setHasHydrated: (value) => set({ hasHydrated: value }),
+    }),
+    {
+      name: "gigzo-app-store",
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        user: state.user,
+        isOnboarded: state.isOnboarded,
+        selectedPlan: state.selectedPlan,
+        historyFilter: state.historyFilter,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+    },
+  ),
+);

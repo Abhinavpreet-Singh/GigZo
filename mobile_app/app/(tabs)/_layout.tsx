@@ -51,10 +51,7 @@ function TabIcon({
       ]}
     >
       <Animated.View
-        style={[
-          styles.iconWrap,
-          focused && styles.iconWrapFocused,
-        ]}
+        style={[styles.iconWrap, focused && styles.iconWrapFocused]}
       >
         <Ionicons name={name} size={20} color={color} />
       </Animated.View>
@@ -151,6 +148,12 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="profile"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="edit-profile"
         options={{
           href: null,
         }}
