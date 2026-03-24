@@ -6,6 +6,7 @@ export default function OnboardingLayout() {
       screenOptions={{ headerShown: false, animation: "slide_from_right" }}
     >
       <Stack.Screen name="welcome" />
+      <Stack.Screen name="auth-options" />
       <Stack.Screen name="email" />
       <Stack.Screen name="otp" />
       <Stack.Screen name="profile" />

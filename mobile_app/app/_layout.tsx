@@ -1,5 +1,5 @@
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { Redirect, Stack } from "expo-router";
+import { Redirect, Stack, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import {
@@ -32,6 +32,7 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
+  const segments = useSegments();
   const [sessionChecked, setSessionChecked] = useState(false);
   const [fontsLoaded] = useFonts({
     "Inter-Regular": Inter_400Regular,
@@ -78,10 +79,7 @@ export default function RootLayout() {
             workingHoursPerDay: profile.workingHoursPerDay,
             avgDailyEarning: profile.avgDailyEarning,
           });
-          const onboardingDone = Boolean(
-            profile.name && profile.platform && profile.city && profile.zone,
-          );
-          setOnboarded(onboardingDone);
+          setOnboarded(true);
         }
       } catch (_error) {
         await clearAccessToken();
@@ -106,10 +104,14 @@ export default function RootLayout() {
     return <View style={{ flex: 1, backgroundColor: "#f7f8fa" }} />;
   }
 
+  const isInOnboarding = segments[0] === "onboarding";
+
   return (
     <ThemeProvider value={GigZoTheme}>
       <StatusBar style="dark" backgroundColor="#ffffff" />
-      {!isOnboarded && <Redirect href="/onboarding/welcome" />}
+      {!isOnboarded && !isInOnboarding && (
+        <Redirect href="/onboarding/welcome" />
+      )}
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
