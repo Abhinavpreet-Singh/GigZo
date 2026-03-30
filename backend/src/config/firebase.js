@@ -23,6 +23,24 @@ function resolveServiceAccountPath(serviceAccountFile) {
 }
 
 function parseServiceAccount() {
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKeyRaw =
+    process.env.FIREBASE_PRIVATE_KEY ||
+    (process.env.FIREBASE_PRIVATE_KEY_BASE64
+      ? Buffer.from(process.env.FIREBASE_PRIVATE_KEY_BASE64, "base64").toString(
+          "utf-8",
+        )
+      : undefined);
+
+  if (projectId && clientEmail && privateKeyRaw) {
+    return {
+      project_id: projectId,
+      client_email: clientEmail,
+      private_key: privateKeyRaw.replace(/\\n/g, "\n"),
+    };
+  }
+
   const serviceAccountFile = process.env.FIREBASE_SERVICE_ACCOUNT_FILE;
   if (serviceAccountFile) {
     const filePath = resolveServiceAccountPath(serviceAccountFile);
@@ -32,24 +50,18 @@ function parseServiceAccount() {
 
   const inlineJson = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   if (inlineJson) {
-    return JSON.parse(inlineJson);
+    try {
+      return JSON.parse(inlineJson);
+    } catch {
+      // Supports Base64-encoded JSON for hosts where raw JSON env values are hard to manage.
+      const decoded = Buffer.from(inlineJson, "base64").toString("utf-8");
+      return JSON.parse(decoded);
+    }
   }
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKeyRaw = process.env.FIREBASE_PRIVATE_KEY;
-
-  if (!projectId || !clientEmail || !privateKeyRaw) {
-    throw new Error(
-      "Firebase Admin credentials are missing. Set FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.",
-    );
-  }
-
-  return {
-    project_id: projectId,
-    client_email: clientEmail,
-    private_key: privateKeyRaw.replace(/\\n/g, "\n"),
-  };
+  throw new Error(
+    "Firebase Admin credentials are missing. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY (or FIREBASE_PRIVATE_KEY_BASE64). Optional fallback: FIREBASE_SERVICE_ACCOUNT_KEY or FIREBASE_SERVICE_ACCOUNT_FILE.",
+  );
 }
 
 export function initializeFirebaseAdmin() {
