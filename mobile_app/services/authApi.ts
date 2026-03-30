@@ -18,13 +18,25 @@ type FirebaseLoginResponse = {
 };
 
 export async function firebaseLogin(idToken: string) {
-  const response = await fetch(`${API_BASE_URL}/api/auth/firebase-login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ idToken }),
-  });
+  const url = `${API_BASE_URL}/api/auth/firebase-login`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ idToken }),
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Network request failed.";
+    throw new Error(
+      `Unable to reach backend at ${url}. ${message} ` +
+        "Check that the server is running and that this device can access it.",
+    );
+  }
 
   const payload = (await response.json()) as FirebaseLoginResponse;
 
