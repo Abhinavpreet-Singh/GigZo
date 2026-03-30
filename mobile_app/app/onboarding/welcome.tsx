@@ -1,5 +1,6 @@
 import React from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -16,7 +17,7 @@ export default function WelcomeScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
       <GigzoBackdrop />
 
       <View style={styles.content}>
@@ -80,6 +81,7 @@ const styles = StyleSheet.create({
   },
   topBrand: {
     alignSelf: "flex-start",
+    marginTop: Spacing.sm,
     backgroundColor: "rgba(255,255,255,0.92)",
     borderRadius: Radius.xxl,
     paddingHorizontal: Spacing.lg,
