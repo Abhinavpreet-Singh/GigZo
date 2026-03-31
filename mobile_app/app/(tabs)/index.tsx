@@ -201,10 +201,10 @@ function RainLoop() {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, conditions, earnings, activeClaim } = useAppStore();
-  const coverageRatio = Math.min(
-    earnings.totalProtected / earnings.weeklyMax,
-    1,
-  );
+  const coverageRatio =
+    earnings.weeklyMax > 0
+      ? Math.min(earnings.totalProtected / earnings.weeklyMax, 1)
+      : 0;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -226,7 +226,7 @@ export default function HomeScreen() {
             <Text style={styles.heroEyebrow}>Live protection</Text>
             <Text style={styles.heroTitle}>GigZo protects every shift.</Text>
             <Text style={styles.heroSub}>
-              Live protection, weather triggers, and payout status for {user.zone}
+              Live protection, weather triggers, and payout status for {user.zone || "your zone"}
               in one cleaner home view.
             </Text>
           </View>
@@ -247,7 +247,9 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.heroPlanMeta}>
                   {user.activePlan === "pro" ? "Pro plan" : "Basic plan"} •{" "}
-                  {user.daysLeft} days remaining
+                  {user.daysLeft > 0
+                    ? `${user.daysLeft} days remaining`
+                    : "Coverage status syncing"}
                 </Text>
               </View>
 

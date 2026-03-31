@@ -11,7 +11,6 @@ import {
   Font,
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { mockThresholds } from "@/services/mockData";
 import { ModernNavBar } from "@/components/ModernNavBar";
 
 const RUPEE = "\u20B9";
@@ -140,7 +139,39 @@ function TimelineCard() {
 }
 
 export default function ClaimsScreen() {
-  const { activeClaim } = useAppStore();
+  const { activeClaim, conditions } = useAppStore();
+  const thresholds = [
+    {
+      id: "rain",
+      label: "Rainfall",
+      icon: "rainy",
+      current: conditions.rainfall.value,
+      threshold: conditions.rainfall.threshold,
+      unit: conditions.rainfall.unit,
+      triggered: conditions.rainfall.triggered,
+      color: Brand.rain,
+    },
+    {
+      id: "aqi",
+      label: "AQI",
+      icon: "leaf",
+      current: conditions.aqi.value,
+      threshold: conditions.aqi.threshold,
+      unit: conditions.aqi.unit,
+      triggered: conditions.aqi.triggered,
+      color: Brand.aqi,
+    },
+    {
+      id: "wind",
+      label: "Wind Speed",
+      icon: "speedometer",
+      current: conditions.windSpeed.value,
+      threshold: conditions.windSpeed.threshold,
+      unit: conditions.windSpeed.unit,
+      triggered: conditions.windSpeed.triggered,
+      color: Brand.primary,
+    },
+  ] as const;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -183,7 +214,7 @@ export default function ClaimsScreen() {
           </Text>
 
           <View style={styles.thresholdList}>
-            {mockThresholds.map((threshold) => (
+            {thresholds.map((threshold) => (
               <ThresholdRow
                 key={threshold.id}
                 label={threshold.label}

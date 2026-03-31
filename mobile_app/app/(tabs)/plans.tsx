@@ -17,20 +17,50 @@ import {
   Spacing,
   Font,
 } from "@/constants/theme";
-import { mockPlans, mockUser } from "@/services/mockData";
 import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
 
 const RUPEE = "\u20B9";
 
+const PLAN_OPTIONS = [
+  {
+    id: "basic",
+    name: "Basic",
+    price: 40,
+    period: "week",
+    payoutPerDay: 300,
+    features: [
+      "Rain coverage up to 300/day",
+      "AQI alert protection",
+      "Weekly auto-renewal",
+    ],
+    recommended: false,
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: 55,
+    period: "week",
+    payoutPerDay: 500,
+    features: [
+      "Rain and flood coverage",
+      "AQI and curfew protection",
+      "Priority payout processing",
+    ],
+    recommended: true,
+  },
+] as const;
+
 function PlanCard({
   plan,
   isSelected,
   onSelect,
+  zoneName,
 }: {
-  plan: (typeof mockPlans)[0];
+  plan: (typeof PLAN_OPTIONS)[number];
   isSelected: boolean;
   onSelect: () => void;
+  zoneName: string;
 }) {
   const isPro = plan.id === "pro";
 
@@ -54,7 +84,7 @@ function PlanCard({
           <Text style={[styles.planName, isPro && styles.planNamePro]}>{plan.name}</Text>
           <Text style={[styles.planMeta, isPro && styles.planMetaPro]}>
             {plan.recommended
-              ? `Best fit for ${mockUser.zone} risk patterns`
+              ? `Best fit for ${zoneName || "your zone"} risk patterns`
               : "Essential weekly income protection"}
           </Text>
         </View>
@@ -111,12 +141,21 @@ function PlanCard({
 }
 
 export default function PlansScreen() {
-  const { selectedPlan, setSelectedPlan } = useAppStore();
+  const { selectedPlan, setSelectedPlan, user, setUser } = useAppStore();
 
   const handleActivate = () => {
     if (!selectedPlan) {
       Alert.alert("Select a Plan", "Please choose a plan first.");
       return;
+    }
+
+    const selectedOption = PLAN_OPTIONS.find((option) => option.id === selectedPlan);
+    if (selectedOption) {
+      setUser({
+        activePlan: selectedOption.id,
+        isProtected: true,
+        coveragePerDay: selectedOption.payoutPerDay,
+      });
     }
 
     Alert.alert(
@@ -145,17 +184,18 @@ export default function PlansScreen() {
           <View style={styles.zoneBadge}>
             <Ionicons name="location-outline" size={14} color={Brand.primary} />
             <Text style={styles.zoneBadgeText}>
-              {mockUser.zone} {"\u2022"} High risk {"\u2022"} Pro recommended
+              {user.zone || "Your zone"} {"\u2022"} Live risk based pricing
             </Text>
           </View>
         </View>
 
-        {mockPlans.map((plan) => (
+        {PLAN_OPTIONS.map((plan) => (
           <PlanCard
             key={plan.id}
             plan={plan}
             isSelected={selectedPlan === plan.id}
             onSelect={() => setSelectedPlan(plan.id as "basic" | "pro")}
+            zoneName={user.zone}
           />
         ))}
 

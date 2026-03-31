@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import {
   Spacing,
   Font,
 } from "@/constants/theme";
-import { mockRiskZones } from "@/services/mockData";
+import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
 
 type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
@@ -34,18 +34,20 @@ const riskBg = (risk: RiskLevel) =>
   })[risk];
 
 function MapView({
+  zones,
   selectedZone,
   onSelect,
 }: {
+  zones: { id: string; name: string; risk: RiskLevel }[];
   selectedZone: string | null;
   onSelect: (id: string) => void;
 }) {
   const positions = [
-    { id: "z1", x: 0.24, y: 0.42 },
-    { id: "z2", x: 0.54, y: 0.2 },
-    { id: "z3", x: 0.68, y: 0.36 },
-    { id: "z4", x: 0.4, y: 0.72 },
-    { id: "z5", x: 0.8, y: 0.54 },
+    { x: 0.24, y: 0.42 },
+    { x: 0.54, y: 0.2 },
+    { x: 0.68, y: 0.36 },
+    { x: 0.4, y: 0.72 },
+    { x: 0.8, y: 0.54 },
   ];
 
   return (
@@ -63,11 +65,10 @@ function MapView({
       <View style={[styles.mapRoad, { top: 84, left: 18, right: 24, height: 2 }]} />
       <View style={[styles.mapRoad, { top: 46, bottom: 28, left: "45%", width: 2 }]} />
 
-      {mockRiskZones.map((zone) => {
-        const pos = positions.find((entry) => entry.id === zone.id);
-        if (!pos) return null;
-
+      {zones.map((zone, index) => {
+        const pos = positions[index % positions.length];
         const selected = selectedZone === zone.id;
+
         return (
           <TouchableOpacity
             key={zone.id}
@@ -102,8 +103,34 @@ function MapView({
 }
 
 export default function RiskMapScreen() {
-  const [selected, setSelected] = useState<string | null>("z1");
-  const zone = mockRiskZones.find((entry) => entry.id === selected);
+  const { user, conditions, earnings } = useAppStore();
+  const riskZones = useMemo(
+    () =>
+      user.zone
+        ? [
+            {
+              id: "current-zone",
+              name: user.zone,
+              risk: conditions.overallRisk,
+            },
+          ]
+        : [],
+    [conditions.overallRisk, user.zone],
+  );
+  const [selected, setSelected] = useState<string | null>(riskZones[0]?.id || null);
+
+  useEffect(() => {
+    if (!riskZones.length) {
+      setSelected(null);
+      return;
+    }
+
+    if (!selected || !riskZones.some((entry) => entry.id === selected)) {
+      setSelected(riskZones[0].id);
+    }
+  }, [riskZones, selected]);
+
+  const zone = riskZones.find((entry) => entry.id === selected);
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -121,7 +148,7 @@ export default function RiskMapScreen() {
           </Text>
         </View>
 
-        <MapView selectedZone={selected} onSelect={setSelected} />
+        <MapView zones={riskZones} selectedZone={selected} onSelect={setSelected} />
 
         {zone ? (
           <View style={styles.card}>
@@ -142,19 +169,21 @@ export default function RiskMapScreen() {
                 {
                   icon: "rainy-outline",
                   title: "Rain exposure",
-                  value: "62mm avg rain / month",
+                  value:
+                    `${conditions.rainfall.value}${conditions.rainfall.unit} current ` +
+                    `(threshold ${conditions.rainfall.threshold}${conditions.rainfall.unit})`,
                   color: Brand.rain,
                 },
                 {
                   icon: "leaf-outline",
                   title: "Air quality peaks",
-                  value: "AQI often exceeds 380",
+                  value: `AQI ${conditions.aqi.value} (threshold ${conditions.aqi.threshold})`,
                   color: Brand.aqi,
                 },
                 {
                   icon: "cash-outline",
-                  title: "Average payouts",
-                  value: `${RUPEE}1,200 per month`,
+                  title: "Protected earnings",
+                  value: `${RUPEE}${earnings.totalProtected.toLocaleString()} this week`,
                   color: Brand.success,
                 },
               ].map((item) => (
@@ -174,10 +203,10 @@ export default function RiskMapScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionEyebrow}>All zones</Text>
-          <Text style={styles.sectionTitle}>Browse nearby disruption hotspots</Text>
+          <Text style={styles.sectionTitle}>Browse available disruption zones</Text>
 
           <View style={styles.zoneList}>
-            {mockRiskZones.map((riskZone) => (
+            {riskZones.map((riskZone) => (
               <TouchableOpacity
                 key={riskZone.id}
                 activeOpacity={0.85}
@@ -206,13 +235,18 @@ export default function RiskMapScreen() {
                 </View>
               </TouchableOpacity>
             ))}
+            {!riskZones.length ? (
+              <View style={styles.emptyZoneState}>
+                <Text style={styles.emptyZoneText}>
+                  Set your work zone in profile to enable live risk map insights.
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.infoStrip}>
             <Ionicons name="information-circle-outline" size={16} color={Brand.primary} />
-            <Text style={styles.infoText}>
-              Risk scores still update from the same weather and air-quality signals.
-            </Text>
+            <Text style={styles.infoText}>{conditions.status}</Text>
           </View>
         </View>
       </ScrollView>
@@ -473,5 +507,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 19,
     color: Brand.primaryDark,
+  },
+  emptyZoneState: {
+    backgroundColor: Brand.surfaceAlt,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    borderWidth: 1,
+    borderColor: Brand.line,
+  },
+  emptyZoneText: {
+    fontFamily: Font.medium,
+    fontSize: 13,
+    lineHeight: 20,
+    color: Neutral[500],
+    textAlign: "center",
   },
 });
