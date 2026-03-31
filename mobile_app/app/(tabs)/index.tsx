@@ -8,10 +8,12 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Location from "expo-location";
 import {
   Brand,
   Neutral,
@@ -24,6 +26,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
 import {
   fetchLiveWeather,
+  fetchLiveWeatherByCoords,
   computeRiskLevel,
   type LiveWeatherData,
 } from "@ai";
@@ -233,49 +236,94 @@ function getWeatherSummary(data: LiveWeatherData | null): string {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, conditions, earnings, activeClaim, setConditions } = useAppStore();
-  const [weatherData, setWeatherData] = useState<LiveWeatherData | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [weatherError, setWeatherError] = useState<string | null>(null);
 
-  const fetchWeather = useCallback(async () => {
-    const city = user.city;
-    if (!city) {
-      setWeatherError("Set your city in profile to enable live weather.");
-      return;
-    }
+  // ── Location & weather state
+  const [weatherData, setWeatherData]     = useState<LiveWeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
+  const [weatherError, setWeatherError]   = useState<string | null>(null);
+
+  // GPS permission + coords
+  type PermStatus = "undetermined" | "granted" | "denied";
+  const [permStatus, setPermStatus]       = useState<PermStatus>("undetermined");
+  const [gpsCoords, setGpsCoords]         = useState<{ lat: number; lon: number } | null>(null);
+  const [locationLabel, setLocationLabel] = useState<string | null>(null);
+
+  /** Request permission, get coords, then fetch weather */
+  const fetchWeather = useCallback(async (forceGps = false) => {
     setWeatherLoading(true);
     setWeatherError(null);
+
     try {
-      const data = await fetchLiveWeather(city);
+      // ── Step 1: check / request location permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      setPermStatus(status === "granted" ? "granted" : "denied");
+
+      let data: LiveWeatherData | null = null;
+
+      if (status === "granted") {
+        // ── Step 2: get current GPS position (balanced accuracy = fast & accurate)
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const { latitude, longitude } = pos.coords;
+        setGpsCoords({ lat: latitude, lon: longitude });
+
+        // ── Step 3: reverse-geocode to get a human-readable area name
+        try {
+          const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
+          const area = geo?.district || geo?.subregion || geo?.city || geo?.region || null;
+          setLocationLabel(area);
+        } catch {
+          setLocationLabel(null);
+        }
+
+        // ── Step 4: fetch weather with exact GPS coords
+        data = await fetchLiveWeatherByCoords(latitude, longitude);
+      } else {
+        // ── Fallback: city from profile
+        const city = user.city;
+        setGpsCoords(null);
+        setLocationLabel(city || null);
+        if (!city) {
+          setWeatherError("Enable location or set your city in Profile.");
+          return;
+        }
+        data = await fetchLiveWeather(city);
+      }
+
       if (data) {
         setWeatherData(data);
         setLastUpdated(new Date());
         const risk = computeRiskLevel(data);
+        const label = locationLabel || (gpsCoords ? `${gpsCoords.lat.toFixed(2)}°, ${gpsCoords.lon.toFixed(2)}°` : user.city || "your zone");
         setConditions({
-          rainfall: { value: Math.round(data.rain_mm * 10) / 10, unit: "mm", threshold: 50, triggered: data.rain_mm >= 50 },
-          aqi: { value: Math.round(data.aqi), unit: "", threshold: 350, triggered: data.aqi >= 350 },
+          rainfall:    { value: Math.round(data.rain_mm * 10) / 10, unit: "mm", threshold: 50, triggered: data.rain_mm >= 50 },
+          aqi:         { value: Math.round(data.aqi), unit: "", threshold: 350, triggered: data.aqi >= 350 },
           temperature: { value: Math.round(data.temperature * 10) / 10, unit: "°C", threshold: 42, triggered: data.temperature >= 42 || data.temperature <= 5 },
-          windSpeed: { value: Math.round(data.wind_kph * 10) / 10, unit: "km/h", threshold: 60, triggered: data.wind_kph >= 60 },
+          windSpeed:   { value: Math.round(data.wind_kph * 10) / 10, unit: "km/h", threshold: 60, triggered: data.wind_kph >= 60 },
           overallRisk: risk,
-          status: `Live · ${city} · updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          status: `Live · ${label} · updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
           isLive: true,
         });
       } else {
-        setWeatherError("Could not fetch weather. Retrying in 5 min.");
+        setWeatherError("Could not fetch weather. Will retry in 5 min.");
       }
     } catch (err) {
       setWeatherError("Weather service temporarily unavailable.");
+      console.error("[home] weather fetch failed:", err);
     } finally {
       setWeatherLoading(false);
     }
-  }, [user.city, setConditions]);
+  }, [user.city, setConditions, locationLabel, gpsCoords]);
 
   useEffect(() => {
     fetchWeather();
-    const interval = setInterval(fetchWeather, 5 * 60 * 1000);
+    const interval = setInterval(() => fetchWeather(), 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [fetchWeather]);
+  // intentional: only re-run when city changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.city]);
 
   const coverageRatio =
     earnings.weeklyMax > 0
@@ -386,87 +434,143 @@ export default function HomeScreen() {
         ) : null}
 
         <Reveal delay={240}>
-          <View style={styles.weatherCard}>
-            {/* Header row: icon + city + refresh */}
-            <View style={styles.weatherCardHeader}>
-              <View style={styles.weatherIconBox}>
-                <Ionicons
-                  name={getWeatherIcon(weatherData) as any}
-                  size={26}
-                  color={Neutral.white}
-                />
+          {permStatus === "denied" && !user.city ? (
+            /* ── Permission denied + no fallback city ── */
+            <View style={styles.permCard}>
+              <View style={styles.permIconWrap}>
+                <Ionicons name="location-outline" size={28} color={Brand.primary} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.weatherCityText}>
-                  {user.city || "Live conditions"}
-                </Text>
-                <Text style={styles.weatherSummaryText}>
-                  {weatherLoading
-                    ? "Fetching conditions..."
-                    : getWeatherSummary(weatherData)}
-                </Text>
-              </View>
-              <TouchableOpacity
-                onPress={fetchWeather}
-                disabled={weatherLoading}
-                style={styles.refreshBtn}
-                activeOpacity={0.7}
-              >
-                {weatherLoading ? (
-                  <ActivityIndicator size="small" color={Neutral.white} />
-                ) : (
-                  <Ionicons name="refresh-outline" size={20} color={Neutral.white} />
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* 4-metric row */}
-            <View style={styles.weatherMetricsRow}>
-              <View style={styles.weatherMetric}>
-                <Ionicons name="thermometer-outline" size={15} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.weatherMetricValue}>
-                  {weatherData ? `${weatherData.temperature.toFixed(1)}°C` : "--"}
-                </Text>
-                <Text style={styles.weatherMetricLabel}>Temp</Text>
-              </View>
-              <View style={styles.weatherMetricDivider} />
-              <View style={styles.weatherMetric}>
-                <Ionicons name="rainy-outline" size={15} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.weatherMetricValue}>
-                  {weatherData ? `${weatherData.rain_mm.toFixed(1)}mm` : "--"}
-                </Text>
-                <Text style={styles.weatherMetricLabel}>Rain</Text>
-              </View>
-              <View style={styles.weatherMetricDivider} />
-              <View style={styles.weatherMetric}>
-                <Ionicons name="speedometer-outline" size={15} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.weatherMetricValue}>
-                  {weatherData ? weatherData.wind_kph.toFixed(0) : "--"}
-                </Text>
-                <Text style={styles.weatherMetricLabel}>km/h</Text>
-              </View>
-              <View style={styles.weatherMetricDivider} />
-              <View style={styles.weatherMetric}>
-                <Ionicons name="leaf-outline" size={15} color="rgba(255,255,255,0.8)" />
-                <Text style={styles.weatherMetricValue}>
-                  {weatherData ? Math.round(weatherData.aqi) : "--"}
-                </Text>
-                <Text style={styles.weatherMetricLabel}>AQI</Text>
-              </View>
-            </View>
-
-            {/* Timestamp / error */}
-            {weatherError ? (
-              <View style={styles.weatherErrorRow}>
-                <Ionicons name="alert-circle-outline" size={13} color="rgba(255,200,180,0.9)" />
-                <Text style={styles.weatherErrorText}>{weatherError}</Text>
-              </View>
-            ) : lastUpdated ? (
-              <Text style={styles.weatherTimestamp}>
-                Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <Text style={styles.permTitle}>Location access needed</Text>
+              <Text style={styles.permSub}>
+                GigZo uses your GPS to show live weather for your exact location. Enable
+                location in Settings, or set your city in Profile as a fallback.
               </Text>
-            ) : null}
-          </View>
+              <View style={styles.permActions}>
+                <TouchableOpacity
+                  style={styles.permBtn}
+                  activeOpacity={0.85}
+                  onPress={() => Linking.openSettings()}
+                >
+                  <Ionicons name="settings-outline" size={16} color={Neutral.white} />
+                  <Text style={styles.permBtnText}>Open Settings</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.permBtnOutline}
+                  activeOpacity={0.85}
+                  onPress={() => router.push("/(tabs)/profile") as any}
+                >
+                  <Text style={styles.permBtnOutlineText}>Set city instead</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* ── Live weather card ── */
+            <View style={styles.weatherCard}>
+              {/* Source badge */}
+              <View style={styles.weatherSourceRow}>
+                <View style={[styles.weatherSourceBadge, gpsCoords ? styles.badgeGps : styles.badgeCity]}>
+                  <Ionicons
+                    name={gpsCoords ? "navigate" : "location-outline"}
+                    size={11}
+                    color={gpsCoords ? "#34D399" : "rgba(255,255,255,0.7)"}
+                  />
+                  <Text style={[styles.weatherSourceText, gpsCoords ? styles.sourceTextGps : styles.sourceTextCity]}>
+                    {gpsCoords
+                      ? `GPS · ${gpsCoords.lat.toFixed(3)}°, ${gpsCoords.lon.toFixed(3)}°`
+                      : `City fallback · ${user.city}`}
+                  </Text>
+                </View>
+                {permStatus === "denied" && (
+                  <TouchableOpacity
+                    onPress={() => Linking.openSettings()}
+                    style={styles.enableGpsBtn}
+                  >
+                    <Text style={styles.enableGpsBtnText}>Enable GPS</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Header row: icon + area name + refresh */}
+              <View style={styles.weatherCardHeader}>
+                <View style={styles.weatherIconBox}>
+                  <Ionicons
+                    name={getWeatherIcon(weatherData) as any}
+                    size={26}
+                    color={Neutral.white}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.weatherCityText}>
+                    {locationLabel || user.city || "Your location"}
+                  </Text>
+                  <Text style={styles.weatherSummaryText}>
+                    {weatherLoading
+                      ? "Fetching conditions..."
+                      : getWeatherSummary(weatherData)}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => fetchWeather(true)}
+                  disabled={weatherLoading}
+                  style={styles.refreshBtn}
+                  activeOpacity={0.7}
+                >
+                  {weatherLoading ? (
+                    <ActivityIndicator size="small" color={Neutral.white} />
+                  ) : (
+                    <Ionicons name="refresh-outline" size={20} color={Neutral.white} />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* 4-metric row */}
+              <View style={styles.weatherMetricsRow}>
+                <View style={styles.weatherMetric}>
+                  <Ionicons name="thermometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.weatherMetricValue}>
+                    {weatherData ? `${weatherData.temperature.toFixed(1)}°C` : "--"}
+                  </Text>
+                  <Text style={styles.weatherMetricLabel}>Temp</Text>
+                </View>
+                <View style={styles.weatherMetricDivider} />
+                <View style={styles.weatherMetric}>
+                  <Ionicons name="rainy-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.weatherMetricValue}>
+                    {weatherData ? `${weatherData.rain_mm.toFixed(1)}mm` : "--"}
+                  </Text>
+                  <Text style={styles.weatherMetricLabel}>Rain</Text>
+                </View>
+                <View style={styles.weatherMetricDivider} />
+                <View style={styles.weatherMetric}>
+                  <Ionicons name="speedometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.weatherMetricValue}>
+                    {weatherData ? weatherData.wind_kph.toFixed(0) : "--"}
+                  </Text>
+                  <Text style={styles.weatherMetricLabel}>km/h</Text>
+                </View>
+                <View style={styles.weatherMetricDivider} />
+                <View style={styles.weatherMetric}>
+                  <Ionicons name="leaf-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Text style={styles.weatherMetricValue}>
+                    {weatherData ? Math.round(weatherData.aqi) : "--"}
+                  </Text>
+                  <Text style={styles.weatherMetricLabel}>AQI</Text>
+                </View>
+              </View>
+
+              {/* Timestamp / error */}
+              {weatherError ? (
+                <View style={styles.weatherErrorRow}>
+                  <Ionicons name="alert-circle-outline" size={13} color="rgba(255,200,180,0.9)" />
+                  <Text style={styles.weatherErrorText}>{weatherError}</Text>
+                </View>
+              ) : lastUpdated ? (
+                <Text style={styles.weatherTimestamp}>
+                  Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </Text>
+              ) : null}
+            </View>
+          )}
         </Reveal>
 
         {/* Metric tiles (stay live via store updated above) */}
@@ -928,6 +1032,121 @@ const styles = StyleSheet.create({
     fontFamily: Font.medium,
     fontSize: 11,
     color: "rgba(255,200,180,0.9)",
+  },
+
+  /* ── GPS source badge ──────────────────── */
+  weatherSourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  weatherSourceBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+  },
+  badgeGps: {
+    backgroundColor: "rgba(52,211,153,0.18)",
+    borderWidth: 1,
+    borderColor: "rgba(52,211,153,0.3)",
+  },
+  badgeCity: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  weatherSourceText: {
+    fontFamily: Font.semiBold,
+    fontSize: 10,
+    letterSpacing: 0.3,
+  },
+  sourceTextGps: {
+    color: "#34D399",
+  },
+  sourceTextCity: {
+    color: "rgba(255,255,255,0.65)",
+  },
+  enableGpsBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  enableGpsBtnText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral.white,
+  },
+
+  /* ── Permission denied card ─────────────── */
+  permCard: {
+    backgroundColor: Neutral.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
+  },
+  permIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 22,
+    backgroundColor: Brand.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  permTitle: {
+    fontFamily: Font.display,
+    fontSize: 20,
+    color: Neutral[900],
+    letterSpacing: -0.5,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  permSub: {
+    fontFamily: Font.medium,
+    fontSize: 13,
+    color: Neutral[500],
+    lineHeight: 20,
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+  },
+  permActions: {
+    width: "100%",
+    gap: Spacing.sm,
+  },
+  permBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Brand.primary,
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
+  },
+  permBtnText: {
+    fontFamily: Font.semiBold,
+    fontSize: 14,
+    color: Neutral.white,
+  },
+  permBtnOutline: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: Radius.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: Brand.line,
+  },
+  permBtnOutlineText: {
+    fontFamily: Font.semiBold,
+    fontSize: 14,
+    color: Brand.primaryDark,
   },
 
   coverageCard: {

@@ -36,6 +36,15 @@
           "resizeMode": "contain",
           "backgroundColor": "#02555d"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "GigZo uses your location to fetch live weather and risk conditions for your current zone.",
+          "locationWhenInUsePermission": "GigZo uses your location to fetch live weather and risk conditions for your current zone.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
       ]
     ],
     "experiments": {
