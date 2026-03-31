@@ -14,6 +14,7 @@ export {
   checkAiConnectivity,
   computeRiskLevel,
   CITY_COORDS,
+  fetchLiveWeatherByCoords,
   type LiveWeatherData,
   type CityResult,
   type RiskLevel,
