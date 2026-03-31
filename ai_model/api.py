@@ -1,6 +1,9 @@
+import asyncio
+
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 
@@ -10,7 +13,16 @@ from trigger_engine import ParametricTriggerEngine
 from config import BASE_DIR
 
 
-app = FastAPI(title="Parametric Insurance Platform")
+app = FastAPI(title="GigZo AI — Parametric Insurance Engine")
+
+# ── CORS ── allow direct calls from the mobile app (Expo / devtunnel / web)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 try:
     ensure_ready(auto_generate=True, auto_train=True)
@@ -131,12 +143,15 @@ def _req_dict(m):
 
 
 @app.get("/live-weather", include_in_schema=True)
-def live_weather(lat: float, lon: float):
-    """Fetch real-world weather and AQI for given coordinates (uses API keys from .env)."""
+async def live_weather(lat: float, lon: float):
+    """Fetch real-world weather and AQI for given coordinates concurrently."""
+    from data_fetchers import get_weather, get_aqi
     try:
-        from data_fetchers import get_weather, get_aqi
-        w = get_weather(lat, lon, date=None)
-        aqi = get_aqi(lat, lon)
+        loop = asyncio.get_event_loop()
+        w, aqi = await asyncio.gather(
+            loop.run_in_executor(None, lambda: get_weather(lat, lon, date=None)),
+            loop.run_in_executor(None, lambda: get_aqi(lat, lon)),
+        )
         return {"temperature": w["temperature"], "rain_mm": w["rain_mm"], "wind_kph": w["wind_kph"], "aqi": aqi}
     except Exception as e:
         return {"error": str(e), "temperature": 25.0, "rain_mm": 0.0, "wind_kph": 10.0, "aqi": 100.0}
@@ -317,16 +332,25 @@ def trigger_health_accident(req: HealthAccidentRequest) -> TriggerResponse:
     )
 
 
-# Static frontend
+# Static frontend (only mounted if the directory exists)
 static_dir = BASE_DIR / "static"
-app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/", include_in_schema=False)
-def root() -> FileResponse:
-    return FileResponse(static_dir / "index.html")
+def root():
+    index = static_dir / "index.html"
+    if index.exists():
+        return FileResponse(str(index))
+    return JSONResponse({"status": "GigZo AI model is running", "docs": "/docs"})
+
+
+@app.get("/health", include_in_schema=True)
+def health():
+    """Health check — used by the mobile app to verify connectivity."""
+    return {"status": "ok", "service": "gigzo-ai"}
 
 
 # To run:
 #   uvicorn api:app --reload
-

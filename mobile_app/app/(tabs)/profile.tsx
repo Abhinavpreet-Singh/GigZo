@@ -18,7 +18,6 @@ import {
   Font,
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { mockHistoryStats } from "@/services/mockData";
 import { ModernNavBar } from "@/components/ModernNavBar";
 import { useRouter } from "expo-router";
 import { clearAccessToken } from "@/services/authStorage";
@@ -127,8 +126,14 @@ function HistoryItem({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, historyFilter, setHistoryFilter, payoutHistory, resetSession } =
-    useAppStore();
+  const {
+    user,
+    historyFilter,
+    setHistoryFilter,
+    payoutHistory,
+    historyStats,
+    resetSession,
+  } = useAppStore();
 
   const handleSignOut = () => {
     Alert.alert("Sign out", "Do you want to sign out from this device?", [
@@ -212,10 +217,10 @@ export default function ProfileScreen() {
           {[
             {
               label: "Total received",
-              value: `${RUPEE}${mockHistoryStats.totalReceived.toLocaleString()}`,
+              value: `${RUPEE}${historyStats.totalReceived.toLocaleString()}`,
             },
-            { label: "Claims paid", value: `${mockHistoryStats.claimsPaid}` },
-            { label: "Pending", value: `${mockHistoryStats.pending}` },
+            { label: "Claims paid", value: `${historyStats.claimsPaid}` },
+            { label: "Pending", value: `${historyStats.pending}` },
           ].map((stat) => (
             <View key={stat.label} style={styles.statCard}>
               <Text style={styles.statValue}>{stat.value}</Text>

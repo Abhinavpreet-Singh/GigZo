@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,11 @@ import {
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
+import {
+  fetchLiveWeather,
+  computeRiskLevel,
+  type LiveWeatherData,
+} from "@ai";
 
 const RUPEE = "\u20B9";
 
@@ -198,13 +204,83 @@ function RainLoop() {
   );
 }
 
+function getWeatherIcon(data: LiveWeatherData | null): string {
+  if (!data) return "cloud-outline";
+  if (data.rain_mm >= 20) return "thunderstorm-outline";
+  if (data.rain_mm >= 5) return "rainy-outline";
+  if (data.aqi >= 300) return "warning-outline";
+  if (data.temperature >= 38) return "sunny-outline";
+  if (data.temperature <= 10) return "snow-outline";
+  if (data.wind_kph >= 50) return "flag-outline";
+  return "partly-sunny-outline";
+}
+
+function getWeatherSummary(data: LiveWeatherData | null): string {
+  if (!data) return "Fetching conditions...";
+  const parts: string[] = [];
+  if (data.rain_mm >= 50) parts.push("Heavy rainfall");
+  else if (data.rain_mm >= 20) parts.push("Moderate rain");
+  else if (data.rain_mm >= 5) parts.push("Light rain");
+  if (data.aqi >= 350) parts.push("Hazardous air");
+  else if (data.aqi >= 200) parts.push("Poor air quality");
+  if (data.temperature >= 42) parts.push("Extreme heat");
+  else if (data.temperature <= 5) parts.push("Extreme cold");
+  if (data.wind_kph >= 60) parts.push("Strong winds");
+  if (parts.length === 0) return "Conditions are normal";
+  return parts.join(" · ");
+}
+
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, conditions, earnings, activeClaim } = useAppStore();
-  const coverageRatio = Math.min(
-    earnings.totalProtected / earnings.weeklyMax,
-    1,
-  );
+  const { user, conditions, earnings, activeClaim, setConditions } = useAppStore();
+  const [weatherData, setWeatherData] = useState<LiveWeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+
+  const fetchWeather = useCallback(async () => {
+    const city = user.city;
+    if (!city) {
+      setWeatherError("Set your city in profile to enable live weather.");
+      return;
+    }
+    setWeatherLoading(true);
+    setWeatherError(null);
+    try {
+      const data = await fetchLiveWeather(city);
+      if (data) {
+        setWeatherData(data);
+        setLastUpdated(new Date());
+        const risk = computeRiskLevel(data);
+        setConditions({
+          rainfall: { value: Math.round(data.rain_mm * 10) / 10, unit: "mm", threshold: 50, triggered: data.rain_mm >= 50 },
+          aqi: { value: Math.round(data.aqi), unit: "", threshold: 350, triggered: data.aqi >= 350 },
+          temperature: { value: Math.round(data.temperature * 10) / 10, unit: "°C", threshold: 42, triggered: data.temperature >= 42 || data.temperature <= 5 },
+          windSpeed: { value: Math.round(data.wind_kph * 10) / 10, unit: "km/h", threshold: 60, triggered: data.wind_kph >= 60 },
+          overallRisk: risk,
+          status: `Live · ${city} · updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          isLive: true,
+        });
+      } else {
+        setWeatherError("Could not fetch weather. Retrying in 5 min.");
+      }
+    } catch (err) {
+      setWeatherError("Weather service temporarily unavailable.");
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, [user.city, setConditions]);
+
+  useEffect(() => {
+    fetchWeather();
+    const interval = setInterval(fetchWeather, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchWeather]);
+
+  const coverageRatio =
+    earnings.weeklyMax > 0
+      ? Math.min(earnings.totalProtected / earnings.weeklyMax, 1)
+      : 0;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -226,7 +302,7 @@ export default function HomeScreen() {
             <Text style={styles.heroEyebrow}>Live protection</Text>
             <Text style={styles.heroTitle}>GigZo protects every shift.</Text>
             <Text style={styles.heroSub}>
-              Live protection, weather triggers, and payout status for {user.zone}
+              Live protection, weather triggers, and payout status for {user.zone || "your zone"}
               in one cleaner home view.
             </Text>
           </View>
@@ -247,7 +323,9 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.heroPlanMeta}>
                   {user.activePlan === "pro" ? "Pro plan" : "Basic plan"} •{" "}
-                  {user.daysLeft} days remaining
+                  {user.daysLeft > 0
+                    ? `${user.daysLeft} days remaining`
+                    : "Coverage status syncing"}
                 </Text>
               </View>
 
@@ -308,18 +386,102 @@ export default function HomeScreen() {
         ) : null}
 
         <Reveal delay={240}>
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHead}>
-              <View>
-                <Text style={styles.sectionEyebrow}>Live conditions</Text>
-                <Text style={styles.sectionTitle}>Signals across your zone</Text>
+          <View style={styles.weatherCard}>
+            {/* Header row: icon + city + refresh */}
+            <View style={styles.weatherCardHeader}>
+              <View style={styles.weatherIconBox}>
+                <Ionicons
+                  name={getWeatherIcon(weatherData) as any}
+                  size={26}
+                  color={Neutral.white}
+                />
               </View>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveBadgeText}>Monitoring</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.weatherCityText}>
+                  {user.city || "Live conditions"}
+                </Text>
+                <Text style={styles.weatherSummaryText}>
+                  {weatherLoading
+                    ? "Fetching conditions..."
+                    : getWeatherSummary(weatherData)}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={fetchWeather}
+                disabled={weatherLoading}
+                style={styles.refreshBtn}
+                activeOpacity={0.7}
+              >
+                {weatherLoading ? (
+                  <ActivityIndicator size="small" color={Neutral.white} />
+                ) : (
+                  <Ionicons name="refresh-outline" size={20} color={Neutral.white} />
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* 4-metric row */}
+            <View style={styles.weatherMetricsRow}>
+              <View style={styles.weatherMetric}>
+                <Ionicons name="thermometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.weatherMetricValue}>
+                  {weatherData ? `${weatherData.temperature.toFixed(1)}°C` : "--"}
+                </Text>
+                <Text style={styles.weatherMetricLabel}>Temp</Text>
+              </View>
+              <View style={styles.weatherMetricDivider} />
+              <View style={styles.weatherMetric}>
+                <Ionicons name="rainy-outline" size={15} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.weatherMetricValue}>
+                  {weatherData ? `${weatherData.rain_mm.toFixed(1)}mm` : "--"}
+                </Text>
+                <Text style={styles.weatherMetricLabel}>Rain</Text>
+              </View>
+              <View style={styles.weatherMetricDivider} />
+              <View style={styles.weatherMetric}>
+                <Ionicons name="speedometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.weatherMetricValue}>
+                  {weatherData ? weatherData.wind_kph.toFixed(0) : "--"}
+                </Text>
+                <Text style={styles.weatherMetricLabel}>km/h</Text>
+              </View>
+              <View style={styles.weatherMetricDivider} />
+              <View style={styles.weatherMetric}>
+                <Ionicons name="leaf-outline" size={15} color="rgba(255,255,255,0.8)" />
+                <Text style={styles.weatherMetricValue}>
+                  {weatherData ? Math.round(weatherData.aqi) : "--"}
+                </Text>
+                <Text style={styles.weatherMetricLabel}>AQI</Text>
               </View>
             </View>
 
+            {/* Timestamp / error */}
+            {weatherError ? (
+              <View style={styles.weatherErrorRow}>
+                <Ionicons name="alert-circle-outline" size={13} color="rgba(255,200,180,0.9)" />
+                <Text style={styles.weatherErrorText}>{weatherError}</Text>
+              </View>
+            ) : lastUpdated ? (
+              <Text style={styles.weatherTimestamp}>
+                Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </Text>
+            ) : null}
+          </View>
+        </Reveal>
+
+        {/* Metric tiles (stay live via store updated above) */}
+        <Reveal delay={280}>
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHead}>
+              <View>
+                <Text style={styles.sectionEyebrow}>Zone signals</Text>
+                <Text style={styles.sectionTitle}>Threshold monitoring</Text>
+              </View>
+              <View style={styles.liveBadge}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveBadgeText}>Live</Text>
+              </View>
+            </View>
             <View style={styles.metricsRow}>
               <MetricTile
                 icon="rainy-outline"
@@ -337,15 +499,11 @@ export default function HomeScreen() {
                 icon="thermometer-outline"
                 label="Temp"
                 value={`${conditions.temperature.value}${conditions.temperature.unit}`}
+                active={conditions.temperature.triggered}
               />
             </View>
-
             <View style={styles.infoStrip}>
-              <Ionicons
-                name="information-circle-outline"
-                size={16}
-                color={Brand.primary}
-              />
+              <Ionicons name="information-circle-outline" size={16} color={Brand.primary} />
               <Text style={styles.infoStripText}>{conditions.status}</Text>
             </View>
           </View>
@@ -677,6 +835,101 @@ const styles = StyleSheet.create({
     borderColor: Brand.line,
     ...Shadow.sm,
   },
+
+  /* ── Live Weather Card ──────────────────── */
+  weatherCard: {
+    backgroundColor: Brand.primaryDark,
+    borderRadius: Radius.xxl,
+    padding: Spacing.xl,
+    overflow: "hidden",
+    ...Shadow.lg,
+  },
+  weatherCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
+  },
+  weatherIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weatherCityText: {
+    fontFamily: Font.display,
+    fontSize: 18,
+    color: Neutral.white,
+    letterSpacing: -0.4,
+    marginBottom: 2,
+  },
+  weatherSummaryText: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.68)",
+    lineHeight: 17,
+  },
+  refreshBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weatherMetricsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+  },
+  weatherMetric: {
+    flex: 1,
+    alignItems: "center",
+    gap: 3,
+  },
+  weatherMetricValue: {
+    fontFamily: Font.bold,
+    fontSize: 15,
+    color: Neutral.white,
+    letterSpacing: -0.2,
+  },
+  weatherMetricLabel: {
+    fontFamily: Font.medium,
+    fontSize: 10,
+    color: "rgba(255,255,255,0.52)",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  weatherMetricDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+  weatherTimestamp: {
+    fontFamily: Font.medium,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.42)",
+    textAlign: "right",
+    marginTop: Spacing.sm,
+  },
+  weatherErrorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: Spacing.sm,
+  },
+  weatherErrorText: {
+    flex: 1,
+    fontFamily: Font.medium,
+    fontSize: 11,
+    color: "rgba(255,200,180,0.9)",
+  },
+
   coverageCard: {
     backgroundColor: Brand.primaryDark,
     borderRadius: Radius.xxl,

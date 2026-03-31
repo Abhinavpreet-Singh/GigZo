@@ -15,7 +15,7 @@ from config import REAL_CITIES
 _USER_AGENT = "ParametricInsurance/1.0 (compliance; contact optional)"
 
 
-def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 15) -> dict:
+def _get(url: str, params: dict[str, Any] | None = None, timeout: int = 8) -> dict:
     r = requests.get(url, params=params or {}, timeout=timeout, headers={"User-Agent": _USER_AGENT})
     r.raise_for_status()
     return r.json()
