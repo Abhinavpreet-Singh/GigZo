@@ -160,6 +160,7 @@ interface AppState {
   setHistoryFilter: (filter: HistoryFilter) => void;
   setOnboarded: (val: boolean) => void;
   setUser: (user: Partial<AppUser>) => void;
+  setConditions: (conditions: Partial<LiveConditions>) => void;
   resetSession: () => void;
   setHasHydrated: (value: boolean) => void;
 }
@@ -188,6 +189,13 @@ export const useAppStore = create<AppState>()(
             ...state.user,
             ...user,
             phone: sanitizePhoneForUi(user.phone) || state.user.phone,
+          },
+        })),
+      setConditions: (conditions) =>
+        set((state) => ({
+          conditions: {
+            ...state.conditions,
+            ...conditions,
           },
         })),
       resetSession: () =>
