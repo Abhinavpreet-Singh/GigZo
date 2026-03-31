@@ -27,11 +27,12 @@ import { GigzoLockup } from "@/components/gigzo-ui";
 import { auth, firebaseConfig } from "@/services/firebaseAuth";
 import { firebaseLogin } from "@/services/authApi";
 import { setAccessToken } from "@/services/authStorage";
+import { getMyProfile } from "@/services/userApi";
 import { useAppStore } from "@/store/useAppStore";
 
 export default function OTPScreen() {
   const router = useRouter();
-  const { setUser } = useAppStore();
+  const { setUser, setOnboarded } = useAppStore();
   const [phone, setPhone] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -103,7 +104,36 @@ export default function OTPScreen() {
         platform: loginResult.user.platform || "Zomato",
         city: loginResult.user.city || "",
       });
-      router.push("/onboarding/profile");
+
+      try {
+        const profile = await getMyProfile();
+        if (profile.name && profile.platform && profile.city && profile.zone) {
+          setUser({
+            id: profile.id,
+            phone: profile.phone,
+            name: profile.name || "",
+            platform: profile.platform || "Zomato",
+            city: profile.city || "",
+            zone: profile.zone || "",
+            coveragePerDay: profile.coveragePerDay || 0,
+            activePlan: profile.activePlan || "basic",
+            isProtected: profile.isProtected,
+            workerId: profile.workerId,
+            type: profile.type,
+            pincode: profile.pincode,
+            workingArea: profile.workingArea,
+            age: profile.age,
+            workingHoursPerDay: profile.workingHoursPerDay,
+            avgDailyEarning: profile.avgDailyEarning,
+          });
+          setOnboarded(true);
+          router.replace("/(tabs)");
+        } else {
+          router.push("/onboarding/profile");
+        }
+      } catch (error) {
+        router.push("/onboarding/profile");
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to verify OTP.";
@@ -139,7 +169,7 @@ export default function OTPScreen() {
             <GigzoLockup compact />
           </View>
 
-          {/* Step bar */}
+          
           <View style={styles.stepRow}>
             {[1, 2, 3, 4].map((s) => (
               <View

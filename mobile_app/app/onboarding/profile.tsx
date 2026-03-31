@@ -101,7 +101,7 @@ export default function ProfileOnboardingScreen() {
       });
 
       setOnboarded(true);
-      router.replace("/(tabs)/plans");
+      router.replace("/(tabs)");
     } catch (error) {
       Alert.alert(
         "Save profile failed",
@@ -114,7 +114,7 @@ export default function ProfileOnboardingScreen() {
 
   const handleSkip = () => {
     setOnboarded(true);
-    router.replace("/(tabs)/plans");
+    router.replace("/(tabs)");
   };
 
   return (
