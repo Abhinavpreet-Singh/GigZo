@@ -42,6 +42,18 @@ python validate_models.py
 python -m uvicorn api:app --reload
 ```
 
+For Render deployment (single worker, low memory):
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1
+```
+
+Recommended Render env vars:
+
+- `AUTO_GENERATE_DATA=0`
+- `AUTO_TRAIN_MODELS=0`
+- `EAGER_LOAD_MODELS=1`
+
 - Dashboard: **http://127.0.0.1:8000/**
 - API docs: **http://127.0.0.1:8000/docs**
 - Live weather: **GET /live-weather?lat=28.6&lon=77.2**

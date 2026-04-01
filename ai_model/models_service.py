@@ -1,6 +1,5 @@
 import numpy as np
 import joblib
-import pandas as pd
  
 from config import (
     RISK_MODEL_PATH,
@@ -50,11 +49,9 @@ class RiskModelService:
         }
         X = np.array([[data[col] for col in self.feature_cols]])
         if self._calibrator is not None:
-            X_df = pd.DataFrame(X, columns=self.feature_cols)
-            prob = float(self._calibrator.predict_proba(X_df)[0, 1])
+            prob = float(self._calibrator.predict_proba(X)[0, 1])
         else:
-            X_df = pd.DataFrame(X, columns=self.feature_cols)
-            prob = float(self._model.predict_proba(X_df)[0, 1])
+            prob = float(self._model.predict_proba(X)[0, 1])
             
         # Add dynamic weighting based on current conditions to make UI feel highly responsive
         dynamic_modifier = (payload["rain_mm"] / 100.0) + (payload["aqi"] / 1000.0)

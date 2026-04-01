@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -24,8 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+auto_generate = os.environ.get("AUTO_GENERATE_DATA", "0") == "1"
+auto_train = os.environ.get("AUTO_TRAIN_MODELS", "0") == "1"
+
 try:
-    ensure_ready(auto_generate=True, auto_train=True)
+    ensure_ready(auto_generate=auto_generate, auto_train=auto_train)
 except Exception as e:
     import traceback
     traceback.print_exc()
@@ -47,6 +51,14 @@ def _ensure_models():
         fraud_service = FraudModelService()
     except FileNotFoundError as e:
         raise RuntimeError("Models not loaded. Run: python train_models.py") from e
+
+
+@app.on_event("startup")
+def _warm_start_models() -> None:
+    """Preload models once at startup to avoid per-request initialization overhead."""
+    eager_load_models = os.environ.get("EAGER_LOAD_MODELS", "1") == "1"
+    if eager_load_models:
+        _ensure_models()
 
 
 class RiskRequest(BaseModel):
