@@ -163,10 +163,21 @@ export async function fetchLiveWeather(
     console.warn(`[ai_model] Cannot resolve city: "${city}"`);
     return null;
   }
+  return fetchLiveWeatherByCoords(coords.lat, coords.lon);
+}
 
+/**
+ * Fetch live weather + AQI directly from GPS coordinates.
+ * Use this when you already have precise lat/lon (e.g. from expo-location).
+ * Maps to: GET /live-weather?lat=...&lon=... in ai_model/api.py
+ */
+export async function fetchLiveWeatherByCoords(
+  lat: number,
+  lon: number
+): Promise<LiveWeatherData | null> {
   try {
     const res = await aiFetch(
-      `/live-weather?lat=${coords.lat}&lon=${coords.lon}`
+      `/live-weather?lat=${lat}&lon=${lon}`
     );
 
     if (!res.ok) {
