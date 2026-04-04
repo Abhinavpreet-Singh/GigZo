@@ -1,12 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
+import React from "react";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -19,84 +12,37 @@ import {
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
-import { fetchLiveWeather, computeRiskLevel } from "@ai";
 
 const RUPEE = "\u20B9";
 
-function ThresholdRow({
-  label,
-  icon,
-  current,
-  threshold,
-  unit,
-  triggered,
-  color,
-}: {
-  label: string;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  current: number;
-  threshold: number;
-  unit: string;
-  triggered: boolean;
-  color: string;
-}) {
-  const ratio = Math.min(current / (threshold * 1.4), 1);
+type PayoutType = "RAIN" | "AQI" | "FLOOD";
 
-  return (
-    <View style={styles.thresholdRow}>
-      <View style={[styles.thresholdIcon, { backgroundColor: `${color}18` }]}>
-        <Ionicons name={icon} size={18} color={color} />
-      </View>
+const TYPE_ICONS: Record<
+  PayoutType,
+  React.ComponentProps<typeof Ionicons>["name"]
+> = {
+  RAIN: "rainy",
+  AQI: "leaf",
+  FLOOD: "water",
+};
 
-      <View style={styles.thresholdBody}>
-        <View style={styles.thresholdHeader}>
-          <Text style={styles.thresholdLabel}>{label}</Text>
-          <Text
-            style={[
-              styles.thresholdValue,
-              { color: triggered ? color : Neutral[700] },
-            ]}
-          >
-            {current}
-            {unit}
-          </Text>
-        </View>
-
-        <View style={styles.thresholdTrack}>
-          <View
-            style={[
-              styles.thresholdFill,
-              {
-                width: `${Math.round(ratio * 100)}%`,
-                backgroundColor: triggered ? color : Neutral[300],
-              },
-            ]}
-          />
-          <View style={styles.thresholdMarker} />
-        </View>
-
-        <View style={styles.thresholdFoot}>
-          <Text style={styles.thresholdLimit}>
-            Trigger at {threshold}
-            {unit}
-          </Text>
-          {triggered ? (
-            <View
-              style={[styles.triggerPill, { backgroundColor: `${color}16` }]}
-            >
-              <Text style={[styles.triggerPillText, { color }]}>Triggered</Text>
-            </View>
-          ) : null}
-        </View>
-      </View>
-    </View>
-  );
-}
+const DEMO_ACTIVE_CLAIM = {
+  id: "SIM-2404",
+  type: "RAIN" as const,
+  reason: "Heavy rainfall threshold crossed in your mapped zone.",
+  amount: 420,
+  status: "in_progress" as const,
+  steps: [
+    { label: "Trigger detected", icon: "checkmark", done: true },
+    { label: "Location verification", icon: "checkmark", done: true },
+    { label: "Payout approval", icon: "time", done: false },
+  ],
+};
 
 function TimelineCard() {
   const { activeClaim } = useAppStore();
-
-  if (!activeClaim) return null;
+  const claim = activeClaim ?? DEMO_ACTIVE_CLAIM;
+  const isSimulated = !activeClaim;
 
   return (
     <View style={styles.card}>
@@ -104,19 +50,22 @@ function TimelineCard() {
         <View>
           <Text style={styles.sectionEyebrow}>Processing now</Text>
           <Text style={styles.timelineTitle}>
-            Claim #{activeClaim.id} is moving through verification
+            Claim #{claim.id} is under verification
           </Text>
+          {isSimulated ? (
+            <Text style={styles.simulationTag}>SIMULATION PREVIEW</Text>
+          ) : null}
         </View>
         <View style={styles.claimTypePill}>
-          <Text style={styles.claimTypeText}>{activeClaim.type}</Text>
+          <Text style={styles.claimTypeText}>{claim.type}</Text>
         </View>
       </View>
 
-      <Text style={styles.timelineReason}>{activeClaim.reason}</Text>
+      <Text style={styles.timelineReason}>{claim.reason}</Text>
 
       <View style={styles.stepsWrap}>
-        {activeClaim.steps.map((step, index) => {
-          const isLast = index === activeClaim.steps.length - 1;
+        {claim.steps.map((step, index) => {
+          const isLast = index === claim.steps.length - 1;
           return (
             <View key={step.label} style={styles.stepRow}>
               <View style={styles.stepRail}>
@@ -153,101 +102,56 @@ function TimelineCard() {
   );
 }
 
+function HistoryList() {
+  const { payoutHistory } = useAppStore();
+
+  return (
+    <View style={styles.card}>
+      <Text style={styles.sectionEyebrow}>Claim history</Text>
+      <Text style={styles.sectionTitle}>Recent payouts and verifications</Text>
+
+      <View style={styles.historyList}>
+        {payoutHistory.length ? (
+          payoutHistory.slice(0, 8).map((item) => (
+            <View key={item.id} style={styles.historyRow}>
+              <View style={styles.historyIcon}>
+                <Ionicons
+                  name={TYPE_ICONS[item.type]}
+                  size={17}
+                  color={Brand.primary}
+                />
+              </View>
+
+              <View style={styles.historyBody}>
+                <Text style={styles.historyTitle}>{item.title}</Text>
+                <Text style={styles.historyMeta}>
+                  {item.date} · {item.status}
+                </Text>
+              </View>
+
+              <Text style={styles.historyAmount}>
+                {item.status === "PAID" ? "+" : ""}
+                {RUPEE}
+                {item.amount}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              No claim history available yet.
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
 export default function ClaimsScreen() {
-  const { activeClaim, conditions, setConditions, user } = useAppStore();
-  const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<string | null>(null);
-
-  const refreshLiveConditions = useCallback(async () => {
-    const city =
-      user.workingArea?.trim() || user.zone?.trim() || user.city?.trim();
-    if (!city) return;
-
-    setSyncing(true);
-    try {
-      const data = await fetchLiveWeather(city);
-      if (!data) return;
-
-      const risk = computeRiskLevel(data);
-      const updatedAt = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      setConditions({
-        rainfall: {
-          value: Math.round(data.rain_mm * 10) / 10,
-          unit: "mm",
-          threshold: 50,
-          triggered: data.rain_mm >= 50,
-        },
-        aqi: {
-          value: Math.round(data.aqi),
-          unit: "",
-          threshold: 350,
-          triggered: data.aqi >= 350,
-        },
-        temperature: {
-          value: Math.round(data.temperature * 10) / 10,
-          unit: "°C",
-          threshold: 42,
-          triggered: data.temperature >= 42 || data.temperature <= 5,
-        },
-        windSpeed: {
-          value: Math.round(data.wind_kph * 10) / 10,
-          unit: "km/h",
-          threshold: 60,
-          triggered: data.wind_kph >= 60,
-        },
-        overallRisk: risk,
-        status: `Live · Claims · ${city} · updated ${updatedAt}`,
-        isLive: true,
-      });
-
-      setLastSync(updatedAt);
-    } finally {
-      setSyncing(false);
-    }
-  }, [setConditions, user.city, user.workingArea, user.zone]);
-
-  useEffect(() => {
-    refreshLiveConditions();
-    const timer = setInterval(() => refreshLiveConditions(), 5 * 60 * 1000);
-    return () => clearInterval(timer);
-  }, [refreshLiveConditions]);
-
-  const thresholds = [
-    {
-      id: "rain",
-      label: "Rainfall",
-      icon: "rainy",
-      current: conditions.rainfall.value,
-      threshold: conditions.rainfall.threshold,
-      unit: conditions.rainfall.unit,
-      triggered: conditions.rainfall.triggered,
-      color: Brand.rain,
-    },
-    {
-      id: "aqi",
-      label: "AQI",
-      icon: "leaf",
-      current: conditions.aqi.value,
-      threshold: conditions.aqi.threshold,
-      unit: conditions.aqi.unit,
-      triggered: conditions.aqi.triggered,
-      color: Brand.aqi,
-    },
-    {
-      id: "wind",
-      label: "Wind Speed",
-      icon: "speedometer",
-      current: conditions.windSpeed.value,
-      threshold: conditions.windSpeed.threshold,
-      unit: conditions.windSpeed.unit,
-      triggered: conditions.windSpeed.triggered,
-      color: Brand.primary,
-    },
-  ] as const;
+  const { activeClaim } = useAppStore();
+  const bannerClaim = activeClaim ?? DEMO_ACTIVE_CLAIM;
+  const isSimulated = !activeClaim;
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
@@ -262,86 +166,35 @@ export default function ClaimsScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.heroCard}>
-          <Text style={styles.heroEyebrow}>Auto payouts</Text>
+          <Text style={styles.heroEyebrow}>Claims center</Text>
           <Text style={styles.heroTitle}>
-            No forms. No back-and-forth. Just status you can understand.
+            Track claim progress and payout history
           </Text>
           <Text style={styles.heroSub}>
-            Live weather and AQI data sync directly with the claims trigger
-            engine.
-          </Text>
-          <View style={styles.liveRow}>
-            <View style={styles.liveBadge}>
-              <View style={styles.liveDot} />
-              <Text style={styles.liveBadgeText}>
-                {conditions.isLive ? "LIVE CONNECTED" : "SYNC PENDING"}
-              </Text>
-              {syncing ? (
-                <ActivityIndicator size="small" color={Brand.primary} />
-              ) : null}
-            </View>
-            <TouchableOpacity
-              style={styles.refreshButton}
-              activeOpacity={0.85}
-              onPress={refreshLiveConditions}
-            >
-              <Ionicons name="refresh" size={14} color={Neutral.white} />
-              <Text style={styles.refreshButtonText}>Refresh</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.lastSyncText}>
-            {lastSync ? `Last synced ${lastSync}` : "Waiting for first sync..."}
+            This screen only shows claim lifecycle updates, verification status,
+            and payout records.
           </Text>
         </View>
 
-        {activeClaim ? (
-          <View style={styles.activeBanner}>
-            <View style={styles.activeBannerIcon}>
-              <Ionicons name="flash" size={18} color={Brand.warning} />
-            </View>
-            <View style={styles.activeBannerCopy}>
-              <Text style={styles.activeBannerTitle}>
-                1 active claim detected
-              </Text>
-              <Text style={styles.activeBannerSub}>
-                Pending payout of {RUPEE}
-                {activeClaim.amount}
-              </Text>
-            </View>
+        <View style={styles.activeBanner}>
+          <View style={styles.activeBannerIcon}>
+            <Ionicons name="flash" size={18} color={Brand.warning} />
           </View>
-        ) : null}
-
-        <View style={styles.card}>
-          <Text style={styles.sectionEyebrow}>Thresholds</Text>
-          <Text style={styles.sectionTitle}>
-            Live triggers across your zone
-          </Text>
-          <Text style={styles.sectionSub}>
-            Claims still trigger automatically once a reading crosses its
-            configured limit.
-          </Text>
-
-          <View style={styles.thresholdList}>
-            {thresholds.map((threshold) => (
-              <ThresholdRow
-                key={threshold.id}
-                label={threshold.label}
-                icon={
-                  threshold.icon as React.ComponentProps<
-                    typeof Ionicons
-                  >["name"]
-                }
-                current={threshold.current}
-                threshold={threshold.threshold}
-                unit={threshold.unit}
-                triggered={threshold.triggered}
-                color={threshold.color}
-              />
-            ))}
+          <View style={styles.activeBannerCopy}>
+            <Text style={styles.activeBannerTitle}>
+              {isSimulated
+                ? "Active claim simulation"
+                : "1 active claim in progress"}
+            </Text>
+            <Text style={styles.activeBannerSub}>
+              Pending payout of {RUPEE}
+              {bannerClaim.amount}
+            </Text>
           </View>
         </View>
 
         <TimelineCard />
+        <HistoryList />
       </ScrollView>
     </SafeAreaView>
   );
@@ -386,59 +239,6 @@ const styles = StyleSheet.create({
     fontFamily: Font.medium,
     fontSize: 14,
     lineHeight: 21,
-    color: Neutral[500],
-  },
-  liveRow: {
-    marginTop: Spacing.md,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  liveBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: Brand.surfaceTint,
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderWidth: 1,
-    borderColor: Brand.line,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Brand.success,
-  },
-  liveBadgeText: {
-    fontFamily: Font.semiBold,
-    fontSize: 11,
-    color: Brand.primaryDark,
-    letterSpacing: 0.3,
-  },
-  refreshButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Brand.primary,
-    borderRadius: Radius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    ...Shadow.xs,
-  },
-  refreshButtonText: {
-    fontFamily: Font.semiBold,
-    fontSize: 11,
-    color: Neutral.white,
-    letterSpacing: 0.2,
-  },
-  lastSyncText: {
-    marginTop: 8,
-    fontFamily: Font.medium,
-    fontSize: 12,
     color: Neutral[500],
   },
   activeBanner: {
@@ -503,82 +303,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Neutral[500],
   },
-  thresholdList: {
-    marginTop: Spacing.lg,
-    gap: Spacing.lg,
-  },
-  thresholdRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    alignItems: "flex-start",
-  },
-  thresholdIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  thresholdBody: {
-    flex: 1,
-    gap: 10,
-  },
-  thresholdHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  thresholdLabel: {
-    fontFamily: Font.semiBold,
-    fontSize: 15,
-    color: Neutral[900],
-  },
-  thresholdValue: {
-    fontFamily: Font.display,
-    fontSize: 16,
-  },
-  thresholdTrack: {
-    height: 10,
-    borderRadius: Radius.full,
-    backgroundColor: Neutral[100],
-    overflow: "hidden",
-    position: "relative",
-  },
-  thresholdFill: {
-    height: "100%",
-    borderRadius: Radius.full,
-  },
-  thresholdMarker: {
-    position: "absolute",
-    left: "71%",
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: Neutral[400],
-  },
-  thresholdFoot: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: Spacing.md,
-  },
-  thresholdLimit: {
-    fontFamily: Font.medium,
-    fontSize: 12,
-    color: Neutral[500],
-  },
-  triggerPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: Radius.full,
-  },
-  triggerPillText: {
-    fontFamily: Font.semiBold,
-    fontSize: 11,
-  },
   timelineHeader: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -611,6 +335,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: Neutral[500],
     marginBottom: Spacing.lg,
+  },
+  simulationTag: {
+    marginTop: 4,
+    fontFamily: Font.bold,
+    fontSize: 10,
+    color: Brand.primary,
+    letterSpacing: 0.6,
   },
   stepsWrap: {
     gap: 4,
@@ -664,5 +395,60 @@ const styles = StyleSheet.create({
     fontFamily: Font.medium,
     fontSize: 12,
     color: Neutral[500],
+  },
+  historyList: {
+    marginTop: Spacing.md,
+    gap: Spacing.sm,
+  },
+  historyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: Brand.surfaceAlt,
+    borderRadius: Radius.lg,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  historyIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Brand.surfaceTint,
+  },
+  historyBody: {
+    flex: 1,
+    gap: 2,
+  },
+  historyTitle: {
+    fontFamily: Font.semiBold,
+    fontSize: 13,
+    color: Neutral[900],
+  },
+  historyMeta: {
+    fontFamily: Font.medium,
+    fontSize: 12,
+    color: Neutral[500],
+  },
+  historyAmount: {
+    fontFamily: Font.bold,
+    fontSize: 13,
+    color: Neutral[900],
+  },
+  emptyState: {
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    borderRadius: Radius.lg,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    backgroundColor: Brand.surfaceAlt,
+  },
+  emptyStateText: {
+    fontFamily: Font.medium,
+    fontSize: 13,
+    color: Neutral[500],
+    textAlign: "center",
   },
 });

@@ -20,6 +20,7 @@ import {
   type PolicyBreakdownItem,
   type PolicySummary,
 } from "@ai";
+import { updateMyProfile } from "@/services/userApi";
 
 const RUPEE = "\u20B9";
 
@@ -141,6 +142,7 @@ export default function PoliciesScreen() {
 
   const [summary, setSummary] = useState<PolicySummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [applyingPlan, setApplyingPlan] = useState(false);
   const [infoVisible, setInfoVisible] = useState(false);
 
   const zoneLabel = useMemo(() => {
@@ -198,15 +200,35 @@ export default function PoliciesScreen() {
   const profilePlan = (user.activePlan ?? "basic") as "basic" | "pro";
   const planChoice = (selectedPlan ?? profilePlan) as "basic" | "pro";
 
-  const applyPlanChoice = useCallback(() => {
+  const applyPlanChoice = useCallback(async () => {
     const preset = PLAN_PRESETS[planChoice];
-    setSelectedPlan(planChoice);
-    setUser({
-      activePlan: planChoice,
-      coveragePerDay: preset.coveragePerDay,
-      isProtected: true,
-      daysLeft: user.daysLeft > 0 ? user.daysLeft : 7,
-    });
+    setApplyingPlan(true);
+
+    try {
+      const profile = await updateMyProfile({
+        activePlan: planChoice,
+        coveragePerDay: preset.coveragePerDay,
+        isProtected: true,
+      });
+
+      setSelectedPlan(planChoice);
+      setUser({
+        activePlan: profile.activePlan ?? planChoice,
+        coveragePerDay: profile.coveragePerDay ?? preset.coveragePerDay,
+        isProtected: profile.isProtected,
+        daysLeft: user.daysLeft > 0 ? user.daysLeft : 7,
+      });
+    } catch {
+      setSelectedPlan(planChoice);
+      setUser({
+        activePlan: planChoice,
+        coveragePerDay: preset.coveragePerDay,
+        isProtected: true,
+        daysLeft: user.daysLeft > 0 ? user.daysLeft : 7,
+      });
+    } finally {
+      setApplyingPlan(false);
+    }
   }, [planChoice, setSelectedPlan, setUser, user.daysLeft]);
 
   const breakdownItems = summary?.breakdown ?? DEMO_BREAKDOWN;
@@ -441,13 +463,22 @@ export default function PoliciesScreen() {
               )}
             </View>
 
-            <Pressable style={styles.applyPlanButton} onPress={applyPlanChoice}>
+            <Pressable
+              style={[
+                styles.applyPlanButton,
+                applyingPlan && styles.applyPlanButtonDisabled,
+              ]}
+              onPress={applyPlanChoice}
+              disabled={applyingPlan}
+            >
               <Ionicons
                 name="checkmark-circle-outline"
                 size={18}
                 color={Neutral.white}
               />
-              <Text style={styles.applyPlanButtonText}>Set as Active Plan</Text>
+              <Text style={styles.applyPlanButtonText}>
+                {applyingPlan ? "Applying..." : "Set as Active Plan"}
+              </Text>
             </Pressable>
           </View>
 
@@ -933,6 +964,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     ...Shadow.md,
+  },
+  applyPlanButtonDisabled: {
+    opacity: 0.72,
   },
   applyPlanButtonText: {
     color: Neutral.white,

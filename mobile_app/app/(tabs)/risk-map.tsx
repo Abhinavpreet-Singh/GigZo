@@ -27,7 +27,13 @@ import {
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
-import { fetchLiveWeather, computeRiskLevel } from "@ai";
+import {
+  fetchLiveWeather,
+  computeRiskLevel,
+  fetchCityZones,
+  type CityZone,
+} from "@ai";
+import { updateMyProfile } from "@/services/userApi";
 
 type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
 type AlertType = "rain" | "aqi" | "heat";
@@ -51,13 +57,6 @@ const riskBg = (risk: RiskLevel) =>
     MEDIUM: Brand.warningLight,
     LOW: Brand.successLight,
   })[risk];
-
-const riskOrder: RiskLevel[] = ["LOW", "MEDIUM", "HIGH"];
-
-function bumpRisk(risk: RiskLevel, shift: number): RiskLevel {
-  const next = Math.max(0, Math.min(2, riskOrder.indexOf(risk) + shift));
-  return riskOrder[next];
-}
 
 function getAlertIcon(
   type: AlertType,
@@ -84,12 +83,16 @@ function MapCanvas({
   zones,
   selectedZone,
   onSelect,
+  onCycle,
 }: {
   zones: RiskZone[];
   selectedZone: string | null;
   onSelect: (id: string) => void;
+  onCycle: () => void;
 }) {
   const pulse = useRef(new Animated.Value(0)).current;
+  const routePulse = useRef(new Animated.Value(0)).current;
+  const scanLine = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.loop(
@@ -110,6 +113,26 @@ function MapCanvas({
     ).start();
   }, [pulse]);
 
+  useEffect(() => {
+    Animated.loop(
+      Animated.timing(routePulse, {
+        toValue: 1,
+        duration: 2400,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ).start();
+
+    Animated.loop(
+      Animated.timing(scanLine, {
+        toValue: 1,
+        duration: 3000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    ).start();
+  }, [routePulse, scanLine]);
+
   const positions = [
     { x: 0.5, y: 0.48 },
     { x: 0.3, y: 0.28 },
@@ -117,6 +140,21 @@ function MapCanvas({
     { x: 0.28, y: 0.72 },
     { x: 0.74, y: 0.7 },
   ];
+
+  const selectedIndex = Math.max(
+    0,
+    zones.findIndex((zone) => zone.id === selectedZone),
+  );
+  const selectedPos = positions[selectedIndex % positions.length];
+
+  const riderX = routePulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [36, 36 + selectedPos.x * 250],
+  });
+  const riderY = routePulse.interpolate({
+    inputRange: [0, 1],
+    outputRange: [32, 32 + selectedPos.y * 250],
+  });
 
   return (
     <View style={styles.mapCard}>
@@ -144,6 +182,33 @@ function MapCanvas({
         style={[styles.mapRoad, { top: 34, bottom: 32, left: "49%", width: 2 }]}
       />
 
+      <Animated.View
+        style={[
+          styles.scanLine,
+          {
+            transform: [
+              {
+                translateX: scanLine.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-130, 330],
+                }),
+              },
+            ],
+          },
+        ]}
+      />
+
+      <Animated.View
+        style={[
+          styles.riderMarker,
+          {
+            transform: [{ translateX: riderX }, { translateY: riderY }],
+          },
+        ]}
+      >
+        <Ionicons name="bicycle" size={12} color={Neutral.white} />
+      </Animated.View>
+
       {zones.map((zone, index) => {
         const pos = positions[index % positions.length];
         const selected = selectedZone === zone.id;
@@ -166,27 +231,35 @@ function MapCanvas({
             />
 
             {zone.id === "current-zone" ? (
-              <Animated.View
+              <View
                 style={[
-                  styles.currentPulse,
+                  styles.currentPulseAnchor,
                   {
                     left: `${pos.x * 100}%`,
                     top: `${pos.y * 100}%`,
-                    opacity: pulse.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.18, 0.45],
-                    }),
-                    transform: [
-                      {
-                        scale: pulse.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [0.9, 1.35],
-                        }),
-                      },
-                    ],
                   },
                 ]}
-              />
+              >
+                <Animated.View
+                  style={[
+                    styles.currentPulse,
+                    {
+                      opacity: pulse.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.18, 0.45],
+                      }),
+                      transform: [
+                        {
+                          scale: pulse.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0.9, 1.35],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
             ) : null}
 
             <TouchableOpacity
@@ -234,18 +307,28 @@ function MapCanvas({
           </View>
         ))}
       </View>
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={onCycle}
+        style={styles.simButton}
+      >
+        <Ionicons name="pulse" size={12} color={Brand.primaryDark} />
+        <Text style={styles.simButtonText}>Simulate route</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
 export default function RiskMapScreen() {
-  const { user, conditions, setConditions } = useAppStore();
+  const { user, conditions, setConditions, setUser } = useAppStore();
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [zoneFeed, setZoneFeed] = useState<CityZone[] | null>(null);
 
   const refreshLiveConditions = useCallback(async () => {
     const city =
-      user.workingArea?.trim() || user.zone?.trim() || user.city?.trim();
+      user.city?.trim() || user.workingArea?.trim() || user.zone?.trim();
     if (!city) return;
 
     setSyncing(true);
@@ -301,108 +384,101 @@ export default function RiskMapScreen() {
     return () => clearInterval(timer);
   }, [refreshLiveConditions]);
 
+  useEffect(() => {
+    const loadZones = async () => {
+      const city =
+        user.city?.trim() || user.workingArea?.trim() || user.zone?.trim();
+      if (!city) {
+        setZoneFeed(null);
+        return;
+      }
+
+      const result = await fetchCityZones(city);
+      setZoneFeed(result?.zones ?? null);
+    };
+
+    loadZones();
+  }, [lastSync, user.city, user.workingArea, user.zone]);
+
   const riskZones = useMemo<RiskZone[]>(() => {
-    const baseName =
-      user.workingArea?.trim() || user.zone?.trim() || user.city?.trim();
-    if (!baseName) return [];
+    if (!zoneFeed?.length) return [];
 
-    const base = conditions.overallRisk;
-    const rainRatio = Math.min(
-      100,
-      Math.round(
-        (conditions.rainfall.value /
-          Math.max(1, conditions.rainfall.threshold)) *
-          100,
-      ),
-    );
-    const aqiRatio = Math.min(
-      100,
-      Math.round(
-        (conditions.aqi.value / Math.max(1, conditions.aqi.threshold)) * 100,
-      ),
-    );
-    const heatRatio = Math.min(
-      100,
-      Math.round(
-        (conditions.temperature.value /
-          Math.max(1, conditions.temperature.threshold)) *
-          100,
-      ),
-    );
+    return zoneFeed.map((zone, index) => ({
+      id: zone.id,
+      name: zone.name,
+      risk: zone.risk,
+      distanceKm: zone.distance_km,
+      triggerHistory: {
+        rain: zone.trigger_history.rain,
+        aqi: zone.trigger_history.aqi,
+        heat: zone.trigger_history.heat,
+      },
+      alerts: zone.alerts.map((message, i) => {
+        const lower = message.toLowerCase();
+        const type: AlertType = lower.includes("aqi")
+          ? "aqi"
+          : lower.includes("heat")
+            ? "heat"
+            : "rain";
+        return {
+          type,
+          message,
+          ago: `${5 + index + i}m ago`,
+        };
+      }),
+    }));
+  }, [zoneFeed]);
 
-    const zoneTemplates = [
-      { id: "current-zone", name: `${baseName} Core`, shift: 0, distance: 0.0 },
-      { id: "north-zone", name: `${baseName} North`, shift: 1, distance: 1.8 },
-      { id: "east-zone", name: `${baseName} East`, shift: 0, distance: 2.6 },
-      { id: "south-zone", name: `${baseName} South`, shift: -1, distance: 3.2 },
-    ];
+  const [selected, setSelected] = useState<string | null>(null);
 
-    return zoneTemplates.map((template, index) => {
-      const zoneRisk = bumpRisk(base, template.shift);
-      const rain = Math.max(8, Math.min(100, rainRatio + (index - 1) * 9));
-      const aqi = Math.max(
-        8,
-        Math.min(100, aqiRatio + (index % 2 === 0 ? 6 : -5)),
-      );
-      const heat = Math.max(8, Math.min(100, heatRatio + (index - 2) * 7));
-
-      const alerts: ZoneAlert[] = [];
-      if (rain >= 70)
-        alerts.push({
-          type: "rain",
-          message: "Heavy rainfall pocket",
-          ago: `${6 + index}m ago`,
-        });
-      if (aqi >= 70)
-        alerts.push({
-          type: "aqi",
-          message: "Hazardous AQI spike",
-          ago: `${10 + index}m ago`,
-        });
-      if (heat >= 70)
-        alerts.push({
-          type: "heat",
-          message: "Heat stress hotspot",
-          ago: `${14 + index}m ago`,
-        });
-
-      return {
-        id: template.id,
-        name: template.name,
-        risk: zoneRisk,
-        distanceKm: template.distance,
-        triggerHistory: { rain, aqi, heat },
-        alerts,
-      };
-    });
-  }, [
-    conditions.aqi.threshold,
-    conditions.aqi.value,
-    conditions.overallRisk,
-    conditions.rainfall.threshold,
-    conditions.rainfall.value,
-    conditions.temperature.threshold,
-    conditions.temperature.value,
-    user.city,
-    user.workingArea,
-    user.zone,
-  ]);
-
-  const [selected, setSelected] = useState<string | null>(
-    riskZones[0]?.id || null,
-  );
+  const cycleSelection = useCallback(() => {
+    if (!riskZones.length) return;
+    const currentIndex = riskZones.findIndex((entry) => entry.id === selected);
+    const nextIndex =
+      currentIndex >= 0 ? (currentIndex + 1) % riskZones.length : 0;
+    setSelected(riskZones[nextIndex].id);
+  }, [riskZones, selected]);
 
   useEffect(() => {
     if (!riskZones.length) {
       setSelected(null);
       return;
     }
+
     if (!selected || !riskZones.some((entry) => entry.id === selected)) {
-      setSelected(riskZones[0].id);
+      setSelected("current-zone");
     }
   }, [riskZones, selected]);
 
   const selectedZone = riskZones.find((entry) => entry.id === selected) || null;
+
+  useEffect(() => {
+    if (!selectedZone) return;
+
+    const persistZone = async () => {
+      try {
+        const cityBase = user.city || selectedZone.name.split(" ")[0];
+        const profile = await updateMyProfile({
+          city: cityBase,
+          zone: selectedZone.name,
+          workingArea: selectedZone.name,
+        });
+
+        setUser({
+          city: profile.city || cityBase,
+          zone: profile.zone || selectedZone.name,
+          workingArea: profile.workingArea || selectedZone.name,
+        });
+      } catch {
+        setUser({
+          zone: selectedZone.name,
+          workingArea: selectedZone.name,
+        });
+      }
+    };
+
+    persistZone();
+  }, [selectedZone, setUser, user.city]);
 
   const nearbyAlerts = useMemo(
     () =>
@@ -455,8 +531,8 @@ export default function RiskMapScreen() {
           <Text style={styles.heroEyebrow}>Map intelligence</Text>
           <Text style={styles.heroTitle}>Interactive city risk heatmap</Text>
           <Text style={styles.heroSub}>
-            Zone risk, current-location awareness, and disruption alerts are
-            updated from live AI weather inputs.
+            Zones are auto-generated for your city (Core/North/South/East/West)
+            using live weather + AQI for each zone.
           </Text>
 
           <View style={styles.liveRow}>
@@ -484,7 +560,31 @@ export default function RiskMapScreen() {
           zones={riskZones}
           selectedZone={selected}
           onSelect={setSelected}
+          onCycle={cycleSelection}
         />
+
+        <View style={styles.zoneChipRow}>
+          {riskZones.map((zone) => (
+            <TouchableOpacity
+              key={`chip-${zone.id}`}
+              onPress={() => setSelected(zone.id)}
+              activeOpacity={0.85}
+              style={[
+                styles.zoneChip,
+                selected === zone.id && styles.zoneChipSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.zoneChipText,
+                  selected === zone.id && styles.zoneChipTextSelected,
+                ]}
+              >
+                {zone.name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {selectedZone ? (
           <View style={styles.card}>
@@ -493,7 +593,7 @@ export default function RiskMapScreen() {
                 <Text style={styles.sectionEyebrow}>Current location pin</Text>
                 <Text style={styles.zoneTitle}>{selectedZone.name}</Text>
                 <Text style={styles.zoneDistance}>
-                  {selectedZone.distanceKm.toFixed(1)} km from current route
+                  {selectedZone.distanceKm.toFixed(1)} km from city center
                 </Text>
               </View>
               <View
@@ -799,6 +899,30 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.58)",
     borderRadius: Radius.full,
   },
+  scanLine: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 46,
+    backgroundColor: "rgba(255,255,255,0.16)",
+  },
+  riderMarker: {
+    position: "absolute",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginLeft: -12,
+    marginTop: -12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: Brand.primary,
+    ...Shadow.sm,
+  },
+  currentPulseAnchor: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+  },
   zoneNodeWrap: {
     position: "absolute",
   },
@@ -870,6 +994,51 @@ const styles = StyleSheet.create({
     fontFamily: Font.semiBold,
     fontSize: 10,
     color: Neutral[700],
+  },
+  simButton: {
+    position: "absolute",
+    left: 14,
+    bottom: 14,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  simButtonText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Brand.primaryDark,
+  },
+  zoneChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: -4,
+  },
+  zoneChip: {
+    backgroundColor: Neutral.white,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  zoneChipSelected: {
+    backgroundColor: Brand.primaryLight,
+    borderColor: `${Brand.primary}50`,
+  },
+  zoneChipText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral[700],
+  },
+  zoneChipTextSelected: {
+    color: Brand.primaryDark,
   },
   card: {
     backgroundColor: Neutral.white,
