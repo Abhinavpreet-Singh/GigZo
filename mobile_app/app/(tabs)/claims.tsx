@@ -1,5 +1,12 @@
-import React from "react";
-import { View, Text, ScrollView, StyleSheet } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -12,6 +19,7 @@ import {
 } from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { ModernNavBar } from "@/components/ModernNavBar";
+import { fetchLiveWeather, computeRiskLevel } from "@ai";
 
 const RUPEE = "\u20B9";
 
@@ -44,7 +52,10 @@ function ThresholdRow({
         <View style={styles.thresholdHeader}>
           <Text style={styles.thresholdLabel}>{label}</Text>
           <Text
-            style={[styles.thresholdValue, { color: triggered ? color : Neutral[700] }]}
+            style={[
+              styles.thresholdValue,
+              { color: triggered ? color : Neutral[700] },
+            ]}
           >
             {current}
             {unit}
@@ -70,7 +81,9 @@ function ThresholdRow({
             {unit}
           </Text>
           {triggered ? (
-            <View style={[styles.triggerPill, { backgroundColor: `${color}16` }]}>
+            <View
+              style={[styles.triggerPill, { backgroundColor: `${color}16` }]}
+            >
               <Text style={[styles.triggerPillText, { color }]}>Triggered</Text>
             </View>
           ) : null}
@@ -115,15 +128,17 @@ function TimelineCard() {
                 />
                 {!isLast ? (
                   <View
-                    style={[
-                      styles.stepLine,
-                      step.done && styles.stepLineDone,
-                    ]}
+                    style={[styles.stepLine, step.done && styles.stepLineDone]}
                   />
                 ) : null}
               </View>
               <View style={styles.stepCopy}>
-                <Text style={[styles.stepLabel, !step.done && styles.stepLabelPending]}>
+                <Text
+                  style={[
+                    styles.stepLabel,
+                    !step.done && styles.stepLabelPending,
+                  ]}
+                >
                   {step.label}
                 </Text>
                 <Text style={styles.stepMeta}>
@@ -139,7 +154,68 @@ function TimelineCard() {
 }
 
 export default function ClaimsScreen() {
-  const { activeClaim, conditions } = useAppStore();
+  const { activeClaim, conditions, setConditions, user } = useAppStore();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  const refreshLiveConditions = useCallback(async () => {
+    const city =
+      user.workingArea?.trim() || user.zone?.trim() || user.city?.trim();
+    if (!city) return;
+
+    setSyncing(true);
+    try {
+      const data = await fetchLiveWeather(city);
+      if (!data) return;
+
+      const risk = computeRiskLevel(data);
+      const updatedAt = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      setConditions({
+        rainfall: {
+          value: Math.round(data.rain_mm * 10) / 10,
+          unit: "mm",
+          threshold: 50,
+          triggered: data.rain_mm >= 50,
+        },
+        aqi: {
+          value: Math.round(data.aqi),
+          unit: "",
+          threshold: 350,
+          triggered: data.aqi >= 350,
+        },
+        temperature: {
+          value: Math.round(data.temperature * 10) / 10,
+          unit: "°C",
+          threshold: 42,
+          triggered: data.temperature >= 42 || data.temperature <= 5,
+        },
+        windSpeed: {
+          value: Math.round(data.wind_kph * 10) / 10,
+          unit: "km/h",
+          threshold: 60,
+          triggered: data.wind_kph >= 60,
+        },
+        overallRisk: risk,
+        status: `Live · Claims · ${city} · updated ${updatedAt}`,
+        isLive: true,
+      });
+
+      setLastSync(updatedAt);
+    } finally {
+      setSyncing(false);
+    }
+  }, [setConditions, user.city, user.workingArea, user.zone]);
+
+  useEffect(() => {
+    refreshLiveConditions();
+    const timer = setInterval(() => refreshLiveConditions(), 5 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [refreshLiveConditions]);
+
   const thresholds = [
     {
       id: "rain",
@@ -175,7 +251,11 @@ export default function ClaimsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ModernNavBar title="Claims" showLogo={false} backgroundColor={Brand.canvasStrong} />
+      <ModernNavBar
+        title="Claims"
+        showLogo={false}
+        backgroundColor={Brand.canvasStrong}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -187,7 +267,30 @@ export default function ClaimsScreen() {
             No forms. No back-and-forth. Just status you can understand.
           </Text>
           <Text style={styles.heroSub}>
-            The claim engine behavior is unchanged. This screen only improves clarity and layout.
+            Live weather and AQI data sync directly with the claims trigger
+            engine.
+          </Text>
+          <View style={styles.liveRow}>
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveBadgeText}>
+                {conditions.isLive ? "LIVE CONNECTED" : "SYNC PENDING"}
+              </Text>
+              {syncing ? (
+                <ActivityIndicator size="small" color={Brand.primary} />
+              ) : null}
+            </View>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              activeOpacity={0.85}
+              onPress={refreshLiveConditions}
+            >
+              <Ionicons name="refresh" size={14} color={Neutral.white} />
+              <Text style={styles.refreshButtonText}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.lastSyncText}>
+            {lastSync ? `Last synced ${lastSync}` : "Waiting for first sync..."}
           </Text>
         </View>
 
@@ -197,7 +300,9 @@ export default function ClaimsScreen() {
               <Ionicons name="flash" size={18} color={Brand.warning} />
             </View>
             <View style={styles.activeBannerCopy}>
-              <Text style={styles.activeBannerTitle}>1 active claim detected</Text>
+              <Text style={styles.activeBannerTitle}>
+                1 active claim detected
+              </Text>
               <Text style={styles.activeBannerSub}>
                 Pending payout of {RUPEE}
                 {activeClaim.amount}
@@ -208,9 +313,12 @@ export default function ClaimsScreen() {
 
         <View style={styles.card}>
           <Text style={styles.sectionEyebrow}>Thresholds</Text>
-          <Text style={styles.sectionTitle}>Live triggers across your zone</Text>
+          <Text style={styles.sectionTitle}>
+            Live triggers across your zone
+          </Text>
           <Text style={styles.sectionSub}>
-            Claims still trigger automatically once a reading crosses its configured limit.
+            Claims still trigger automatically once a reading crosses its
+            configured limit.
           </Text>
 
           <View style={styles.thresholdList}>
@@ -218,7 +326,11 @@ export default function ClaimsScreen() {
               <ThresholdRow
                 key={threshold.id}
                 label={threshold.label}
-                icon={threshold.icon as React.ComponentProps<typeof Ionicons>["name"]}
+                icon={
+                  threshold.icon as React.ComponentProps<
+                    typeof Ionicons
+                  >["name"]
+                }
                 current={threshold.current}
                 threshold={threshold.threshold}
                 unit={threshold.unit}
@@ -274,6 +386,59 @@ const styles = StyleSheet.create({
     fontFamily: Font.medium,
     fontSize: 14,
     lineHeight: 21,
+    color: Neutral[500],
+  },
+  liveRow: {
+    marginTop: Spacing.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  liveBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Brand.surfaceTint,
+    borderRadius: Radius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: Brand.line,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Brand.success,
+  },
+  liveBadgeText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Brand.primaryDark,
+    letterSpacing: 0.3,
+  },
+  refreshButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: Brand.primary,
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...Shadow.xs,
+  },
+  refreshButtonText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: Neutral.white,
+    letterSpacing: 0.2,
+  },
+  lastSyncText: {
+    marginTop: 8,
+    fontFamily: Font.medium,
+    fontSize: 12,
     color: Neutral[500],
   },
   activeBanner: {

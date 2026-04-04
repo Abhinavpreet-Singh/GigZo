@@ -23,6 +23,23 @@ import {
 
 const RUPEE = "\u20B9";
 
+const PLAN_PRESETS = {
+  basic: {
+    key: "basic",
+    title: "Basic Plan",
+    coveragePerDay: 300,
+    premiumHint: 52,
+    note: "Essential protection for regular shifts",
+  },
+  pro: {
+    key: "pro",
+    title: "Pro Plan",
+    coveragePerDay: 500,
+    premiumHint: 58,
+    note: "Higher payout cap for volatile zones",
+  },
+} as const;
+
 const DEMO_ACTIVE_POLICY = {
   policyNumber: "POL-28492",
   validRange: "4 Apr – 10 Apr 2026",
@@ -118,6 +135,9 @@ function PolicyHistoryCard() {
 
 export default function PoliciesScreen() {
   const user = useAppStore((state) => state.user);
+  const selectedPlan = useAppStore((state) => state.selectedPlan);
+  const setSelectedPlan = useAppStore((state) => state.setSelectedPlan);
+  const setUser = useAppStore((state) => state.setUser);
 
   const [summary, setSummary] = useState<PolicySummary | null>(null);
   const [loading, setLoading] = useState(false);
@@ -174,6 +194,20 @@ export default function PoliciesScreen() {
   useEffect(() => {
     loadPolicySummary();
   }, [loadPolicySummary]);
+
+  const profilePlan = (user.activePlan ?? "basic") as "basic" | "pro";
+  const planChoice = (selectedPlan ?? profilePlan) as "basic" | "pro";
+
+  const applyPlanChoice = useCallback(() => {
+    const preset = PLAN_PRESETS[planChoice];
+    setSelectedPlan(planChoice);
+    setUser({
+      activePlan: planChoice,
+      coveragePerDay: preset.coveragePerDay,
+      isProtected: true,
+      daysLeft: user.daysLeft > 0 ? user.daysLeft : 7,
+    });
+  }, [planChoice, setSelectedPlan, setUser, user.daysLeft]);
 
   const breakdownItems = summary?.breakdown ?? DEMO_BREAKDOWN;
   const activePolicy = {
@@ -357,6 +391,64 @@ export default function PoliciesScreen() {
 
               <Text style={styles.breakdownFootnote}>{aiNote}</Text>
             </View>
+          </View>
+
+          <View style={styles.planSelectionSection}>
+            <Text style={styles.sectionKicker}>Choose plan</Text>
+            <Text style={styles.sectionTitle}>
+              Select coverage for this week
+            </Text>
+
+            <View style={styles.planCardList}>
+              {(Object.keys(PLAN_PRESETS) as Array<"basic" | "pro">).map(
+                (planKey) => {
+                  const preset = PLAN_PRESETS[planKey];
+                  const isCurrent = profilePlan === planKey;
+                  const isSelected = planChoice === planKey;
+
+                  return (
+                    <Pressable
+                      key={planKey}
+                      onPress={() => setSelectedPlan(planKey)}
+                      style={[
+                        styles.planOptionCard,
+                        isSelected && styles.planOptionCardSelected,
+                      ]}
+                    >
+                      <View style={styles.planOptionTopRow}>
+                        <Text style={styles.planOptionTitle}>
+                          {preset.title}
+                        </Text>
+                        {isCurrent ? (
+                          <View style={styles.currentPlanPill}>
+                            <Text style={styles.currentPlanPillText}>
+                              Current
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.planOptionCoverage}>
+                        {formatCurrency(preset.coveragePerDay)} / day
+                      </Text>
+                      <Text style={styles.planOptionSub}>{preset.note}</Text>
+                      <Text style={styles.planOptionPremiumHint}>
+                        Typical weekly premium:{" "}
+                        {formatCurrency(preset.premiumHint)}
+                      </Text>
+                    </Pressable>
+                  );
+                },
+              )}
+            </View>
+
+            <Pressable style={styles.applyPlanButton} onPress={applyPlanChoice}>
+              <Ionicons
+                name="checkmark-circle-outline"
+                size={18}
+                color={Neutral.white}
+              />
+              <Text style={styles.applyPlanButtonText}>Set as Active Plan</Text>
+            </Pressable>
           </View>
 
           <View style={styles.policyListHeader}>
@@ -768,6 +860,85 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: Font.medium,
     marginTop: 12,
+  },
+  planSelectionSection: {
+    marginTop: 22,
+  },
+  planCardList: {
+    marginTop: 12,
+    gap: 10,
+  },
+  planOptionCard: {
+    backgroundColor: Neutral.white,
+    borderRadius: 20,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.sm,
+  },
+  planOptionCardSelected: {
+    borderColor: `${Brand.primary}66`,
+    backgroundColor: Brand.primaryLight,
+  },
+  planOptionTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  planOptionTitle: {
+    color: Brand.primaryDark,
+    fontSize: 16,
+    fontFamily: Font.bold,
+  },
+  currentPlanPill: {
+    backgroundColor: Brand.surfaceTint,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: Brand.line,
+  },
+  currentPlanPillText: {
+    color: Brand.primaryDark,
+    fontSize: 11,
+    fontFamily: Font.semiBold,
+  },
+  planOptionCoverage: {
+    marginTop: 8,
+    color: Brand.primary,
+    fontSize: 20,
+    fontFamily: Font.display,
+  },
+  planOptionSub: {
+    marginTop: 4,
+    color: Neutral[600],
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: Font.medium,
+  },
+  planOptionPremiumHint: {
+    marginTop: 6,
+    color: Neutral[500],
+    fontSize: 12,
+    fontFamily: Font.medium,
+  },
+  applyPlanButton: {
+    marginTop: 12,
+    backgroundColor: Brand.primary,
+    borderRadius: 16,
+    height: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    ...Shadow.md,
+  },
+  applyPlanButtonText: {
+    color: Neutral.white,
+    fontSize: 14,
+    fontFamily: Font.bold,
+    letterSpacing: 0.2,
   },
   policyListHeader: {
     marginTop: 22,

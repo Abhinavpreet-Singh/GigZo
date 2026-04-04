@@ -373,6 +373,14 @@ export default function HomeScreen() {
       ? Math.min(earnings.totalProtected / earnings.weeklyMax, 1)
       : 0;
 
+  const resolvedPlan = user.activePlan ?? "basic";
+  const resolvedCoverage =
+    user.coveragePerDay > 0
+      ? user.coveragePerDay
+      : resolvedPlan === "pro"
+        ? 500
+        : 300;
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.topBlend}>
@@ -415,11 +423,11 @@ export default function HomeScreen() {
                 <Text style={styles.heroKicker}>Active cover</Text>
                 <View style={styles.heroAmountRow}>
                   <Text style={styles.heroCurrency}>{RUPEE}</Text>
-                  <Text style={styles.heroAmount}>{user.coveragePerDay}</Text>
+                  <Text style={styles.heroAmount}>{resolvedCoverage}</Text>
                   <Text style={styles.heroAmountMeta}>/day</Text>
                 </View>
                 <Text style={styles.heroPlanMeta}>
-                  {user.activePlan === "pro" ? "Pro plan" : "Basic plan"} •{" "}
+                  {resolvedPlan === "pro" ? "Pro plan" : "Basic plan"} •{" "}
                   {user.daysLeft > 0
                     ? `${user.daysLeft} days remaining`
                     : "Coverage status syncing"}
