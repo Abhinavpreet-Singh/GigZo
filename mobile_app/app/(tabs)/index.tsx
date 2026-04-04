@@ -9,6 +9,8 @@ import {
   Easing,
   ActivityIndicator,
   Linking,
+  Modal,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -113,36 +115,6 @@ function Reveal({
   );
 }
 
-function MetricTile({
-  icon,
-  label,
-  value,
-  active = false,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value: string;
-  active?: boolean;
-}) {
-  return (
-    <View style={[styles.metricTile, active && styles.metricTileActive]}>
-      <View style={[styles.metricIcon, active && styles.metricIconActive]}>
-        <Ionicons
-          name={icon}
-          size={18}
-          color={active ? Neutral.white : Brand.primary}
-        />
-      </View>
-      <Text style={[styles.metricValue, active && styles.metricValueActive]}>
-        {value}
-      </Text>
-      <Text style={[styles.metricLabel, active && styles.metricLabelActive]}>
-        {label}
-      </Text>
-    </View>
-  );
-}
-
 function RainLoop() {
   const drops = useRef(
     RAIN_DROPS.map(() => ({
@@ -156,12 +128,14 @@ function RainLoop() {
     });
 
     const animations = drops.map((drop, index) =>
-      Animated.loop(Animated.timing(drop.progress, {
-        toValue: 1,
-        duration: RAIN_DROPS[index].duration,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })),
+      Animated.loop(
+        Animated.timing(drop.progress, {
+          toValue: 1,
+          duration: RAIN_DROPS[index].duration,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ),
     );
 
     animations.forEach((animation) => animation.start());
@@ -173,7 +147,7 @@ function RainLoop() {
 
   return (
     <View pointerEvents="none" style={styles.rainLayer}>
-      {RAIN_DROPS.map((drop, index) => (
+      {RAIN_DROPS.map((drop, index) =>
         (() => {
           const translateY = drops[index].progress.interpolate({
             inputRange: [0, 1],
@@ -201,8 +175,8 @@ function RainLoop() {
               ]}
             />
           );
-        })()
-      ))}
+        })(),
+      )}
     </View>
   );
 }
@@ -235,75 +209,133 @@ function getWeatherSummary(data: LiveWeatherData | null): string {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, conditions, earnings, activeClaim, setConditions } = useAppStore();
+  const { user, conditions, earnings, activeClaim, setConditions } =
+    useAppStore();
 
   // ── Location & weather state
-  const [weatherData, setWeatherData]     = useState<LiveWeatherData | null>(null);
+  const [weatherData, setWeatherData] = useState<LiveWeatherData | null>(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
-  const [lastUpdated, setLastUpdated]     = useState<Date | null>(null);
-  const [weatherError, setWeatherError]   = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
 
   // GPS permission + coords
   type PermStatus = "undetermined" | "granted" | "denied";
-  const [permStatus, setPermStatus]       = useState<PermStatus>("undetermined");
-  const [gpsCoords, setGpsCoords]         = useState<{ lat: number; lon: number } | null>(null);
+  type LocationMode = "gps" | "profile" | "manual";
+  const [permStatus, setPermStatus] = useState<PermStatus>("undetermined");
+  const [gpsCoords, setGpsCoords] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
   const [locationLabel, setLocationLabel] = useState<string | null>(null);
+  const [locationMode, setLocationMode] = useState<LocationMode>("gps");
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [manualCity, setManualCity] = useState("");
 
-  /** Request permission, get coords, then fetch weather */
-  const fetchWeather = useCallback(async (forceGps = false) => {
+  /** Request permission, resolve location source, then fetch weather */
+  const fetchWeather = useCallback(async () => {
     setWeatherLoading(true);
     setWeatherError(null);
 
     try {
-      // ── Step 1: check / request location permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      setPermStatus(status === "granted" ? "granted" : "denied");
-
       let data: LiveWeatherData | null = null;
+      let nextLabel = "";
+      let nextCoords: { lat: number; lon: number } | null = null;
+      let usedGps = false;
 
-      if (status === "granted") {
-        // ── Step 2: get current GPS position (balanced accuracy = fast & accurate)
-        const pos = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-        const { latitude, longitude } = pos.coords;
-        setGpsCoords({ lat: latitude, lon: longitude });
+      if (locationMode === "gps") {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        const hasPermission = status === "granted";
+        setPermStatus(hasPermission ? "granted" : "denied");
 
-        // ── Step 3: reverse-geocode to get a human-readable area name
-        try {
-          const [geo] = await Location.reverseGeocodeAsync({ latitude, longitude });
-          const area = geo?.district || geo?.subregion || geo?.city || geo?.region || null;
-          setLocationLabel(area);
-        } catch {
-          setLocationLabel(null);
+        if (hasPermission) {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const { latitude, longitude } = pos.coords;
+          nextCoords = { lat: latitude, lon: longitude };
+          usedGps = true;
+
+          try {
+            const [geo] = await Location.reverseGeocodeAsync({
+              latitude,
+              longitude,
+            });
+            nextLabel =
+              geo?.district ||
+              geo?.subregion ||
+              geo?.city ||
+              geo?.region ||
+              "Current area";
+          } catch {
+            nextLabel = `${latitude.toFixed(2)}°, ${longitude.toFixed(2)}°`;
+          }
+
+          data = await fetchLiveWeatherByCoords(latitude, longitude);
+        } else {
+          const fallbackCity = user.city?.trim();
+          if (!fallbackCity) {
+            setWeatherError(
+              "Enable location or pick a city from the location switcher.",
+            );
+            setGpsCoords(null);
+            setLocationLabel("Location needed");
+            return;
+          }
+          nextLabel = fallbackCity;
+          data = await fetchLiveWeather(fallbackCity);
         }
-
-        // ── Step 4: fetch weather with exact GPS coords
-        data = await fetchLiveWeatherByCoords(latitude, longitude);
       } else {
-        // ── Fallback: city from profile
-        const city = user.city;
-        setGpsCoords(null);
-        setLocationLabel(city || null);
-        if (!city) {
-          setWeatherError("Enable location or set your city in Profile.");
+        const selectedCity =
+          locationMode === "manual" ? manualCity.trim() : user.city.trim();
+        if (!selectedCity) {
+          setWeatherError("Select a city from the location switcher.");
           return;
         }
-        data = await fetchLiveWeather(city);
+        setPermStatus("undetermined");
+        nextLabel = selectedCity;
+        data = await fetchLiveWeather(selectedCity);
       }
 
       if (data) {
         setWeatherData(data);
         setLastUpdated(new Date());
+        setGpsCoords(nextCoords);
+        setLocationLabel(nextLabel);
+
         const risk = computeRiskLevel(data);
-        const label = locationLabel || (gpsCoords ? `${gpsCoords.lat.toFixed(2)}°, ${gpsCoords.lon.toFixed(2)}°` : user.city || "your zone");
+        const displaySource = usedGps ? "GPS" : "City";
+        const updatedAt = new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
         setConditions({
-          rainfall:    { value: Math.round(data.rain_mm * 10) / 10, unit: "mm", threshold: 50, triggered: data.rain_mm >= 50 },
-          aqi:         { value: Math.round(data.aqi), unit: "", threshold: 350, triggered: data.aqi >= 350 },
-          temperature: { value: Math.round(data.temperature * 10) / 10, unit: "°C", threshold: 42, triggered: data.temperature >= 42 || data.temperature <= 5 },
-          windSpeed:   { value: Math.round(data.wind_kph * 10) / 10, unit: "km/h", threshold: 60, triggered: data.wind_kph >= 60 },
+          rainfall: {
+            value: Math.round(data.rain_mm * 10) / 10,
+            unit: "mm",
+            threshold: 50,
+            triggered: data.rain_mm >= 50,
+          },
+          aqi: {
+            value: Math.round(data.aqi),
+            unit: "",
+            threshold: 350,
+            triggered: data.aqi >= 350,
+          },
+          temperature: {
+            value: Math.round(data.temperature * 10) / 10,
+            unit: "°C",
+            threshold: 42,
+            triggered: data.temperature >= 42 || data.temperature <= 5,
+          },
+          windSpeed: {
+            value: Math.round(data.wind_kph * 10) / 10,
+            unit: "km/h",
+            threshold: 60,
+            triggered: data.wind_kph >= 60,
+          },
           overallRisk: risk,
-          status: `Live · ${label} · updated ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+          status: `Live · ${displaySource} · ${nextLabel} · updated ${updatedAt}`,
           isLive: true,
         });
       } else {
@@ -311,19 +343,30 @@ export default function HomeScreen() {
       }
     } catch (err) {
       setWeatherError("Weather service temporarily unavailable.");
-      console.error("[home] weather fetch failed:", err);
+      console.warn("[home] weather fetch failed:", err);
     } finally {
       setWeatherLoading(false);
     }
-  }, [user.city, setConditions, locationLabel, gpsCoords]);
+  }, [locationMode, manualCity, user.city, setConditions]);
 
   useEffect(() => {
     fetchWeather();
     const interval = setInterval(() => fetchWeather(), 5 * 60 * 1000);
     return () => clearInterval(interval);
-  // intentional: only re-run when city changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user.city]);
+  }, [fetchWeather]);
+
+  const applyLocationMode = (mode: LocationMode) => {
+    setLocationMode(mode);
+    setLocationModalOpen(false);
+  };
+
+  const locationTitle = locationLabel || user.zone || "Set location";
+  const locationSubtitle =
+    locationMode === "gps"
+      ? "Live GPS"
+      : locationMode === "manual"
+        ? `${manualCity || "Custom city"} • manual`
+        : `${user.city || "Profile city"} • profile`;
 
   const coverageRatio =
     earnings.weeklyMax > 0
@@ -338,7 +381,12 @@ export default function HomeScreen() {
         <View style={styles.topFade} />
       </View>
 
-      <ModernNavBar transparent />
+      <ModernNavBar
+        transparent
+        locationTitle={locationTitle}
+        locationSubtitle={locationSubtitle}
+        onPressLocation={() => setLocationModalOpen(true)}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -350,7 +398,8 @@ export default function HomeScreen() {
             <Text style={styles.heroEyebrow}>Live protection</Text>
             <Text style={styles.heroTitle}>GigZo protects every shift.</Text>
             <Text style={styles.heroSub}>
-              Live protection, weather triggers, and payout status for {user.zone || "your zone"}
+              Live protection, weather triggers, and payout status for{" "}
+              {user.zone || "your zone"}
               in one cleaner home view.
             </Text>
           </View>
@@ -378,34 +427,15 @@ export default function HomeScreen() {
               </View>
 
               <View style={styles.heroStatusCard}>
-                <Ionicons name="shield-checkmark" size={22} color={Brand.primary} />
-                <Text style={styles.heroStatusValue}>{conditions.overallRisk}</Text>
-                <Text style={styles.heroStatusLabel}>zone risk</Text>
-              </View>
-            </View>
-
-            <View style={styles.heroPillRow}>
-              <View style={styles.heroPill}>
-                <Ionicons name="rainy-outline" size={14} color={Brand.primaryDark} />
-                <Text style={styles.heroPillText}>
-                  Rain {conditions.rainfall.value}
-                  {conditions.rainfall.unit}
-                </Text>
-              </View>
-              <View style={styles.heroPill}>
-                <Ionicons name="leaf-outline" size={14} color={Brand.primaryDark} />
-                <Text style={styles.heroPillText}>AQI {conditions.aqi.value}</Text>
-              </View>
-              <View style={styles.heroPill}>
                 <Ionicons
-                  name="thermometer-outline"
-                  size={14}
-                  color={Brand.primaryDark}
+                  name="shield-checkmark"
+                  size={22}
+                  color={Brand.primary}
                 />
-                <Text style={styles.heroPillText}>
-                  {conditions.temperature.value}
-                  {conditions.temperature.unit}
+                <Text style={styles.heroStatusValue}>
+                  {conditions.overallRisk}
                 </Text>
+                <Text style={styles.heroStatusLabel}>zone risk</Text>
               </View>
             </View>
           </View>
@@ -438,12 +468,17 @@ export default function HomeScreen() {
             /* ── Permission denied + no fallback city ── */
             <View style={styles.permCard}>
               <View style={styles.permIconWrap}>
-                <Ionicons name="location-outline" size={28} color={Brand.primary} />
+                <Ionicons
+                  name="location-outline"
+                  size={28}
+                  color={Brand.primary}
+                />
               </View>
               <Text style={styles.permTitle}>Location access needed</Text>
               <Text style={styles.permSub}>
-                GigZo uses your GPS to show live weather for your exact location. Enable
-                location in Settings, or set your city in Profile as a fallback.
+                GigZo uses your GPS to show live weather for your exact
+                location. Enable location in Settings, or set your city in
+                Profile as a fallback.
               </Text>
               <View style={styles.permActions}>
                 <TouchableOpacity
@@ -451,7 +486,11 @@ export default function HomeScreen() {
                   activeOpacity={0.85}
                   onPress={() => Linking.openSettings()}
                 >
-                  <Ionicons name="settings-outline" size={16} color={Neutral.white} />
+                  <Ionicons
+                    name="settings-outline"
+                    size={16}
+                    color={Neutral.white}
+                  />
                   <Text style={styles.permBtnText}>Open Settings</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -459,7 +498,9 @@ export default function HomeScreen() {
                   activeOpacity={0.85}
                   onPress={() => router.push("/(tabs)/profile") as any}
                 >
-                  <Text style={styles.permBtnOutlineText}>Set city instead</Text>
+                  <Text style={styles.permBtnOutlineText}>
+                    Set city instead
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -468,16 +509,26 @@ export default function HomeScreen() {
             <View style={styles.weatherCard}>
               {/* Source badge */}
               <View style={styles.weatherSourceRow}>
-                <View style={[styles.weatherSourceBadge, gpsCoords ? styles.badgeGps : styles.badgeCity]}>
+                <View
+                  style={[
+                    styles.weatherSourceBadge,
+                    gpsCoords ? styles.badgeGps : styles.badgeCity,
+                  ]}
+                >
                   <Ionicons
                     name={gpsCoords ? "navigate" : "location-outline"}
                     size={11}
                     color={gpsCoords ? "#34D399" : "rgba(255,255,255,0.7)"}
                   />
-                  <Text style={[styles.weatherSourceText, gpsCoords ? styles.sourceTextGps : styles.sourceTextCity]}>
+                  <Text
+                    style={[
+                      styles.weatherSourceText,
+                      gpsCoords ? styles.sourceTextGps : styles.sourceTextCity,
+                    ]}
+                  >
                     {gpsCoords
                       ? `GPS · ${gpsCoords.lat.toFixed(3)}°, ${gpsCoords.lon.toFixed(3)}°`
-                      : `City fallback · ${user.city}`}
+                      : `City · ${locationLabel || user.city || "Not set"}`}
                   </Text>
                 </View>
                 {permStatus === "denied" && (
@@ -503,6 +554,9 @@ export default function HomeScreen() {
                   <Text style={styles.weatherCityText}>
                     {locationLabel || user.city || "Your location"}
                   </Text>
+                  <Text style={styles.weatherRiskText}>
+                    Risk: {conditions.overallRisk}
+                  </Text>
                   <Text style={styles.weatherSummaryText}>
                     {weatherLoading
                       ? "Fetching conditions..."
@@ -510,7 +564,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => fetchWeather(true)}
+                  onPress={fetchWeather}
                   disabled={weatherLoading}
                   style={styles.refreshBtn}
                   activeOpacity={0.7}
@@ -518,7 +572,11 @@ export default function HomeScreen() {
                   {weatherLoading ? (
                     <ActivityIndicator size="small" color={Neutral.white} />
                   ) : (
-                    <Ionicons name="refresh-outline" size={20} color={Neutral.white} />
+                    <Ionicons
+                      name="refresh-outline"
+                      size={20}
+                      color={Neutral.white}
+                    />
                   )}
                 </TouchableOpacity>
               </View>
@@ -526,15 +584,25 @@ export default function HomeScreen() {
               {/* 4-metric row */}
               <View style={styles.weatherMetricsRow}>
                 <View style={styles.weatherMetric}>
-                  <Ionicons name="thermometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Ionicons
+                    name="thermometer-outline"
+                    size={15}
+                    color="rgba(255,255,255,0.8)"
+                  />
                   <Text style={styles.weatherMetricValue}>
-                    {weatherData ? `${weatherData.temperature.toFixed(1)}°C` : "--"}
+                    {weatherData
+                      ? `${weatherData.temperature.toFixed(1)}°C`
+                      : "--"}
                   </Text>
                   <Text style={styles.weatherMetricLabel}>Temp</Text>
                 </View>
                 <View style={styles.weatherMetricDivider} />
                 <View style={styles.weatherMetric}>
-                  <Ionicons name="rainy-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Ionicons
+                    name="rainy-outline"
+                    size={15}
+                    color="rgba(255,255,255,0.8)"
+                  />
                   <Text style={styles.weatherMetricValue}>
                     {weatherData ? `${weatherData.rain_mm.toFixed(1)}mm` : "--"}
                   </Text>
@@ -542,7 +610,11 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.weatherMetricDivider} />
                 <View style={styles.weatherMetric}>
-                  <Ionicons name="speedometer-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Ionicons
+                    name="speedometer-outline"
+                    size={15}
+                    color="rgba(255,255,255,0.8)"
+                  />
                   <Text style={styles.weatherMetricValue}>
                     {weatherData ? weatherData.wind_kph.toFixed(0) : "--"}
                   </Text>
@@ -550,7 +622,11 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.weatherMetricDivider} />
                 <View style={styles.weatherMetric}>
-                  <Ionicons name="leaf-outline" size={15} color="rgba(255,255,255,0.8)" />
+                  <Ionicons
+                    name="leaf-outline"
+                    size={15}
+                    color="rgba(255,255,255,0.8)"
+                  />
                   <Text style={styles.weatherMetricValue}>
                     {weatherData ? Math.round(weatherData.aqi) : "--"}
                   </Text>
@@ -561,56 +637,24 @@ export default function HomeScreen() {
               {/* Timestamp / error */}
               {weatherError ? (
                 <View style={styles.weatherErrorRow}>
-                  <Ionicons name="alert-circle-outline" size={13} color="rgba(255,200,180,0.9)" />
+                  <Ionicons
+                    name="alert-circle-outline"
+                    size={13}
+                    color="rgba(255,200,180,0.9)"
+                  />
                   <Text style={styles.weatherErrorText}>{weatherError}</Text>
                 </View>
               ) : lastUpdated ? (
                 <Text style={styles.weatherTimestamp}>
-                  Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Updated{" "}
+                  {lastUpdated.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </Text>
               ) : null}
             </View>
           )}
-        </Reveal>
-
-        {/* Metric tiles (stay live via store updated above) */}
-        <Reveal delay={280}>
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHead}>
-              <View>
-                <Text style={styles.sectionEyebrow}>Zone signals</Text>
-                <Text style={styles.sectionTitle}>Threshold monitoring</Text>
-              </View>
-              <View style={styles.liveBadge}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveBadgeText}>Live</Text>
-              </View>
-            </View>
-            <View style={styles.metricsRow}>
-              <MetricTile
-                icon="rainy-outline"
-                label="Rain"
-                value={`${conditions.rainfall.value}${conditions.rainfall.unit}`}
-                active={conditions.rainfall.triggered}
-              />
-              <MetricTile
-                icon="leaf-outline"
-                label="AQI"
-                value={`${conditions.aqi.value}`}
-                active={conditions.aqi.triggered}
-              />
-              <MetricTile
-                icon="thermometer-outline"
-                label="Temp"
-                value={`${conditions.temperature.value}${conditions.temperature.unit}`}
-                active={conditions.temperature.triggered}
-              />
-            </View>
-            <View style={styles.infoStrip}>
-              <Ionicons name="information-circle-outline" size={16} color={Brand.primary} />
-              <Text style={styles.infoStripText}>{conditions.status}</Text>
-            </View>
-          </View>
         </Reveal>
 
         <Reveal delay={300}>
@@ -618,7 +662,9 @@ export default function HomeScreen() {
             <View style={styles.sectionHead}>
               <View>
                 <Text style={styles.coverageEyebrow}>Coverage this week</Text>
-                <Text style={styles.coverageTitle}>Protected earnings balance</Text>
+                <Text style={styles.coverageTitle}>
+                  Protected earnings balance
+                </Text>
               </View>
               <Text style={styles.coverageAmount}>
                 {RUPEE}
@@ -630,7 +676,9 @@ export default function HomeScreen() {
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${Math.max(10, Math.round(coverageRatio * 100))}%` },
+                  {
+                    width: `${Math.max(10, Math.round(coverageRatio * 100))}%`,
+                  },
                 ]}
               />
             </View>
@@ -652,7 +700,9 @@ export default function HomeScreen() {
             <View style={styles.sectionHead}>
               <View>
                 <Text style={styles.sectionEyebrow}>Quick access</Text>
-                <Text style={styles.sectionTitle}>Core actions, simplified</Text>
+                <Text style={styles.sectionTitle}>
+                  Core actions, simplified
+                </Text>
               </View>
             </View>
 
@@ -679,6 +729,70 @@ export default function HomeScreen() {
           </View>
         </Reveal>
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={locationModalOpen}
+        onRequestClose={() => setLocationModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.locationModalCard}>
+            <View style={styles.modalHeadRow}>
+              <Text style={styles.modalTitle}>Change location</Text>
+              <TouchableOpacity onPress={() => setLocationModalOpen(false)}>
+                <Ionicons name="close" size={20} color={Neutral[700]} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.locationModeBtn}
+              onPress={() => applyLocationMode("gps")}
+            >
+              <Ionicons name="navigate" size={16} color={Brand.primary} />
+              <Text style={styles.locationModeText}>Use live GPS location</Text>
+              {locationMode === "gps" ? (
+                <Ionicons name="checkmark" size={18} color={Brand.primary} />
+              ) : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.locationModeBtn}
+              onPress={() => applyLocationMode("profile")}
+            >
+              <Ionicons
+                name="location-outline"
+                size={16}
+                color={Brand.primary}
+              />
+              <Text style={styles.locationModeText}>
+                Use profile city ({user.city || "not set"})
+              </Text>
+              {locationMode === "profile" ? (
+                <Ionicons name="checkmark" size={18} color={Brand.primary} />
+              ) : null}
+            </TouchableOpacity>
+
+            <View style={styles.manualWrap}>
+              <Text style={styles.manualLabel}>Manual city</Text>
+              <TextInput
+                style={styles.manualInput}
+                placeholder="Enter city name"
+                placeholderTextColor={Neutral[400]}
+                value={manualCity}
+                onChangeText={setManualCity}
+              />
+              <TouchableOpacity
+                style={styles.manualApplyBtn}
+                onPress={() => applyLocationMode("manual")}
+                disabled={!manualCity.trim()}
+              >
+                <Text style={styles.manualApplyText}>Use this city</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -687,6 +801,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Brand.canvas,
+  },
+  weatherRiskText: {
+    fontFamily: Font.semiBold,
+    fontSize: 11,
+    color: "rgba(255,255,255,0.86)",
+    marginBottom: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
   },
   topBlend: {
     position: "absolute",
@@ -1336,5 +1458,86 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: Neutral[500],
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(7,22,25,0.45)",
+    justifyContent: "flex-end",
+    padding: Spacing.md,
+  },
+  locationModalCard: {
+    backgroundColor: Neutral.white,
+    borderRadius: Radius.xxl,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    ...Shadow.md,
+  },
+  modalHeadRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontFamily: Font.display,
+    fontSize: 24,
+    color: Neutral[900],
+    letterSpacing: -0.7,
+  },
+  locationModeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    borderRadius: Radius.lg,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 10,
+  },
+  locationModeText: {
+    flex: 1,
+    fontFamily: Font.medium,
+    fontSize: 14,
+    color: Neutral[800],
+  },
+  manualWrap: {
+    marginTop: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Brand.line,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    backgroundColor: Brand.surfaceAlt,
+  },
+  manualLabel: {
+    fontFamily: Font.semiBold,
+    fontSize: 12,
+    color: Neutral[600],
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  manualInput: {
+    borderWidth: 1,
+    borderColor: Neutral[200],
+    borderRadius: Radius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: Neutral.white,
+    fontFamily: Font.medium,
+    color: Neutral[900],
+  },
+  manualApplyBtn: {
+    marginTop: 10,
+    borderRadius: Radius.md,
+    backgroundColor: Brand.primary,
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  manualApplyText: {
+    fontFamily: Font.semiBold,
+    fontSize: 13,
+    color: Neutral.white,
   },
 });

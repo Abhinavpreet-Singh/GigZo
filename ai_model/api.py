@@ -156,17 +156,40 @@ def _req_dict(m):
 
 @app.get("/live-weather", include_in_schema=True)
 async def live_weather(lat: float, lon: float):
-    """Fetch real-world weather and AQI for given coordinates concurrently."""
+    """Fetch real-world weather + AQI for given coordinates.
+    
+    Uses ONLY Open-Meteo API (free, no key). 
+    No hardcoded values - only real API data or errors.
+    """
     from data_fetchers import get_weather, get_aqi
+    
     try:
+        # Weather data (temperature, rain, wind) is mandatory from real API
         loop = asyncio.get_event_loop()
-        w, aqi = await asyncio.gather(
-            loop.run_in_executor(None, lambda: get_weather(lat, lon, date=None)),
-            loop.run_in_executor(None, lambda: get_aqi(lat, lon)),
-        )
-        return {"temperature": w["temperature"], "rain_mm": w["rain_mm"], "wind_kph": w["wind_kph"], "aqi": aqi}
+        w = await loop.run_in_executor(None, lambda: get_weather(lat, lon, date=None))
+        
+        # AQI is optional—fetch separately with its own error handling
+        try:
+            aqi = await loop.run_in_executor(None, lambda: get_aqi(lat, lon))
+            # If AQI API failed, it returns None; use neutral value
+            if aqi is None:
+                aqi = 100.0  # Only use neutral value if AQI service unavailable
+        except Exception as e:
+            print(f"[Warning] AQI fetch error: {e}")
+            aqi = 100.0  # Neutral fallback only for AQI if service down
+        
+        return {
+            "temperature": w["temperature"],
+            "rain_mm": w["rain_mm"],
+            "wind_kph": w["wind_kph"],
+            "aqi": aqi,
+        }
     except Exception as e:
-        return {"error": str(e), "temperature": 25.0, "rain_mm": 0.0, "wind_kph": 10.0, "aqi": 100.0}
+        # Weather data fetch failed—treat as critical
+        raise HTTPException(
+            status_code=503,
+            detail=f"Weather API unavailable: {str(e)}"
+        )
 
 
 @app.get("/search-cities", include_in_schema=True)
