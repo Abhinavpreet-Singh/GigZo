@@ -116,7 +116,7 @@ export default function OTPScreen() {
             city: profile.city || "",
             zone: profile.zone || "",
             coveragePerDay: profile.coveragePerDay || 0,
-            activePlan: profile.activePlan || "basic",
+            activePlan: profile.activePlan ?? null,
             isProtected: profile.isProtected,
             workerId: profile.workerId,
             type: profile.type,
@@ -169,7 +169,6 @@ export default function OTPScreen() {
             <GigzoLockup compact />
           </View>
 
-          
           <View style={styles.stepRow}>
             {[1, 2, 3, 4].map((s) => (
               <View

@@ -159,6 +159,34 @@ export type PolicySummaryInput = {
   planType?: "basic" | "pro";
 };
 
+export type CityZoneTriggerHistory = {
+  rain: number;
+  aqi: number;
+  heat: number;
+};
+
+export type CityZone = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  distance_km: number;
+  risk: RiskLevel;
+  rain_mm: number;
+  aqi: number;
+  temperature: number;
+  wind_kph: number;
+  trigger_history: CityZoneTriggerHistory;
+  alerts: string[];
+};
+
+export type CityZonesResponse = {
+  city: string;
+  updated_at: string;
+  source: string;
+  zones: CityZone[];
+};
+
 // ── City Coordinate Map ───────────────────────────────────────────────────────
 // Mirrors REAL_CITIES in ai_model/config.py — avoids a geocoding
 // network call for the most common Indian cities.
@@ -349,6 +377,35 @@ export async function fetchPolicySummary(
     return data;
   } catch (err) {
     console.warn("[ai_model] /policy-hub fetch failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Fetch live city sub-zones (core/north/south/east/west) with real weather and AQI.
+ * Maps to: GET /city-zones?city=... in ai_model/api.py
+ */
+export async function fetchCityZones(
+  city: string,
+): Promise<CityZonesResponse | null> {
+  const query = city.trim();
+  if (!query) return null;
+
+  try {
+    const res = await aiFetch(`/city-zones?city=${encodeURIComponent(query)}`);
+    if (!res.ok) {
+      console.warn(
+        "[ai_model] /city-zones HTTP error:",
+        res.status,
+        res.statusText,
+      );
+      return null;
+    }
+
+    const data = await safeJson<CityZonesResponse>(res);
+    return data;
+  } catch (err) {
+    console.warn("[ai_model] /city-zones fetch failed:", err);
     return null;
   }
 }

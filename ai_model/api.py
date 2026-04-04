@@ -120,6 +120,34 @@ class PolicySummaryResponse(BaseModel):
     history: List[PolicyHistoryItem]
 
 
+class CityZoneTriggerHistory(BaseModel):
+    rain: int
+    aqi: int
+    heat: int
+
+
+class CityZoneItem(BaseModel):
+    id: str
+    name: str
+    lat: float
+    lon: float
+    distance_km: float
+    risk: str
+    rain_mm: float
+    aqi: float
+    temperature: float
+    wind_kph: float
+    trigger_history: CityZoneTriggerHistory
+    alerts: List[str]
+
+
+class CityZonesResponse(BaseModel):
+    city: str
+    updated_at: str
+    source: str
+    zones: List[CityZoneItem]
+
+
 class LossRequest(BaseModel):
     avg_deliveries_per_hour: float
     earnings_per_delivery: float
@@ -273,6 +301,97 @@ def calculate_premium(req: PremiumRequest) -> PremiumResponse:
         worker_risk_category=req.worker_risk_category,
     )
     return PremiumResponse(weekly_premium=premium)
+
+
+def _risk_from_weather(temperature: float, rain_mm: float, wind_kph: float, aqi: float) -> str:
+    if rain_mm >= 50 or aqi >= 350 or temperature >= 45 or temperature <= 2 or wind_kph >= 80:
+        return "HIGH"
+    if rain_mm >= 20 or aqi >= 200 or temperature >= 40 or temperature <= 8 or wind_kph >= 50:
+        return "MEDIUM"
+    return "LOW"
+
+
+@app.get("/city-zones", response_model=CityZonesResponse)
+def city_zones(city: str):
+    """Return city sub-zones using real weather/AQI for each zone.
+
+    Zones are generated as Core/North/South/East/West around the resolved city
+    center and each zone pulls live data directly from Open-Meteo endpoints.
+    """
+    from data_fetchers import get_weather, get_aqi, search_indian_cities, fetch_route_distance
+
+    query = (city or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="city is required")
+
+    matches = search_indian_cities(query)
+    if not matches:
+        raise HTTPException(status_code=404, detail=f"City not found: {query}")
+
+    center = matches[0]
+    city_name = center.get("city") or query
+    center_lat = float(center["lat"])
+    center_lon = float(center["lon"])
+
+    # About 8-10 km offsets around city center.
+    offset = 0.08
+    zone_defs = [
+        ("current-zone", f"{city_name} Core", center_lat, center_lon),
+        ("north-zone", f"{city_name} North", center_lat + offset, center_lon),
+        ("south-zone", f"{city_name} South", center_lat - offset, center_lon),
+        ("east-zone", f"{city_name} East", center_lat, center_lon + offset),
+        ("west-zone", f"{city_name} West", center_lat, center_lon - offset),
+    ]
+
+    zones: List[CityZoneItem] = []
+    for zone_id, zone_name, lat, lon in zone_defs:
+        weather = get_weather(lat, lon, None)
+        aqi_raw = get_aqi(lat, lon)
+        aqi = float(aqi_raw if aqi_raw is not None else 100.0)
+
+        rain_mm = float(weather["rain_mm"])
+        temp_c = float(weather["temperature"])
+        wind_kph = float(weather["wind_kph"])
+        risk = _risk_from_weather(temp_c, rain_mm, wind_kph, aqi)
+
+        alerts: List[str] = []
+        if rain_mm >= 50:
+            alerts.append("Heavy rainfall pocket")
+        if aqi >= 350:
+            alerts.append("Hazardous AQI spike")
+        if temp_c >= 40:
+            alerts.append("Heat stress hotspot")
+
+        distance_km = round(fetch_route_distance(center_lat, center_lon, lat, lon), 2)
+        trigger_history = CityZoneTriggerHistory(
+            rain=min(100, max(0, int(round((rain_mm / 50.0) * 100)))),
+            aqi=min(100, max(0, int(round((aqi / 350.0) * 100)))),
+            heat=min(100, max(0, int(round((temp_c / 42.0) * 100)))),
+        )
+
+        zones.append(
+            CityZoneItem(
+                id=zone_id,
+                name=zone_name,
+                lat=lat,
+                lon=lon,
+                distance_km=distance_km,
+                risk=risk,
+                rain_mm=rain_mm,
+                aqi=aqi,
+                temperature=temp_c,
+                wind_kph=wind_kph,
+                trigger_history=trigger_history,
+                alerts=alerts,
+            )
+        )
+
+    return CityZonesResponse(
+        city=city_name,
+        updated_at=datetime.now().isoformat(timespec="seconds"),
+        source="Open-Meteo live city sub-zones",
+        zones=zones,
+    )
 
 
 @app.get("/policy-hub", response_model=PolicySummaryResponse)
