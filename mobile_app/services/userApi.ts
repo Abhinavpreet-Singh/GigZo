@@ -31,6 +31,22 @@ type ApiEnvelope<T> = {
   data?: T;
 };
 
+async function parseApiResponse<T>(response: Response): Promise<{
+  payload: T | null;
+  rawBody: string;
+}> {
+  const rawBody = await response.text();
+  if (!rawBody) {
+    return { payload: null, rawBody: "" };
+  }
+
+  try {
+    return { payload: JSON.parse(rawBody) as T, rawBody };
+  } catch {
+    return { payload: null, rawBody };
+  }
+}
+
 export type UpdateUserProfileInput = {
   name?: string;
   age?: number;
@@ -67,10 +83,18 @@ export async function getMyProfile() {
     headers,
   });
 
-  const payload = (await response.json()) as ApiEnvelope<BackendUserProfile>;
+  const { payload, rawBody } = await parseApiResponse<
+    ApiEnvelope<BackendUserProfile>
+  >(response);
 
-  if (!response.ok || !payload.success || !payload.data) {
-    throw new Error(payload.message || "Unable to fetch profile.");
+  if (!response.ok || !payload?.success || !payload.data) {
+    const rawSummary = rawBody.trim().slice(0, 120);
+    throw new Error(
+      payload?.message ||
+        (rawSummary
+          ? `Unable to fetch profile (HTTP ${response.status}): ${rawSummary}`
+          : `Unable to fetch profile (HTTP ${response.status}).`),
+    );
   }
 
   return payload.data;
@@ -84,10 +108,18 @@ export async function updateMyProfile(input: UpdateUserProfileInput) {
     body: JSON.stringify(input),
   });
 
-  const payload = (await response.json()) as ApiEnvelope<BackendUserProfile>;
+  const { payload, rawBody } = await parseApiResponse<
+    ApiEnvelope<BackendUserProfile>
+  >(response);
 
-  if (!response.ok || !payload.success || !payload.data) {
-    throw new Error(payload.message || "Unable to save profile.");
+  if (!response.ok || !payload?.success || !payload.data) {
+    const rawSummary = rawBody.trim().slice(0, 120);
+    throw new Error(
+      payload?.message ||
+        (rawSummary
+          ? `Unable to save profile (HTTP ${response.status}): ${rawSummary}`
+          : `Unable to save profile (HTTP ${response.status}).`),
+    );
   }
 
   return payload.data;
