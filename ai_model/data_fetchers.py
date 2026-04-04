@@ -133,6 +133,58 @@ def fetch_aqi_openmeteo(lat: float, lon: float) -> float:
         return None
 
 
+def fetch_weekly_forecast_openmeteo(lat: float, lon: float, days: int = 7) -> dict[str, Any]:
+    """Fetch a compact 7-day forecast summary from Open-Meteo.
+
+    Returns forecast totals and ranges used by the policy hub UI and
+    premium explanation endpoint.
+    """
+    days = max(1, min(days, 14))
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "daily": "precipitation_sum,temperature_2m_max,temperature_2m_min,weather_code",
+        "forecast_days": days,
+        "timezone": "auto",
+    }
+    data = _get(url, params)
+    daily = data.get("daily", {})
+
+    times = daily.get("time", [])
+    precipitation = daily.get("precipitation_sum", [])
+    tmax = daily.get("temperature_2m_max", [])
+    tmin = daily.get("temperature_2m_min", [])
+    codes = daily.get("weather_code", [])
+
+    if not times:
+        raise ValueError(f"No forecast data available from Open-Meteo for lat={lat}, lon={lon}")
+
+    rain_total = 0.0
+    max_temp = None
+    min_temp = None
+    for index in range(min(len(times), days)):
+        if index < len(precipitation):
+            rain_total += float(precipitation[index] or 0.0)
+        if index < len(tmax):
+            value = float(tmax[index])
+            max_temp = value if max_temp is None else max(max_temp, value)
+        if index < len(tmin):
+            value = float(tmin[index])
+            min_temp = value if min_temp is None else min(min_temp, value)
+
+    if max_temp is None or min_temp is None:
+        raise ValueError(f"Forecast temperature data missing for lat={lat}, lon={lon}")
+
+    return {
+        "days": min(len(times), days),
+        "rain_total_mm": round(rain_total, 1),
+        "max_temp_c": round(max_temp, 1),
+        "min_temp_c": round(min_temp, 1),
+        "weather_codes": list(codes[:days]),
+    }
+
+
 def get_weather(lat: float, lon: float, date: datetime | None = None) -> dict[str, float]:
     """Fetch weather ONLY from Open-Meteo API (free, no key, reliable).
     
