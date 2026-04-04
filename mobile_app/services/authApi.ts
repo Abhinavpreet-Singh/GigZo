@@ -17,6 +17,22 @@ type FirebaseLoginResponse = {
   };
 };
 
+async function parseApiResponse<T>(response: Response): Promise<{
+  payload: T | null;
+  rawBody: string;
+}> {
+  const rawBody = await response.text();
+  if (!rawBody) {
+    return { payload: null, rawBody: "" };
+  }
+
+  try {
+    return { payload: JSON.parse(rawBody) as T, rawBody };
+  } catch {
+    return { payload: null, rawBody };
+  }
+}
+
 export async function firebaseLogin(idToken: string) {
   const url = `${API_BASE_URL}/api/auth/firebase-login`;
 
@@ -38,10 +54,23 @@ export async function firebaseLogin(idToken: string) {
     );
   }
 
-  const payload = (await response.json()) as FirebaseLoginResponse;
+  const { payload, rawBody } = await parseApiResponse<FirebaseLoginResponse>(
+    response,
+  );
 
-  if (!response.ok || !payload.success || !payload.data?.accessToken) {
-    throw new Error(payload.message || "Authentication failed.");
+  if (!response.ok || !payload?.success || !payload.data?.accessToken) {
+    if (payload?.message) {
+      throw new Error(payload.message);
+    }
+
+    const rawSummary = rawBody.trim().slice(0, 120);
+
+    throw new Error(
+      `Authentication failed (HTTP ${response.status}). ` +
+        (rawSummary
+          ? `Server response: ${rawSummary}`
+          : "The server returned an empty or invalid response."),
+    );
   }
 
   return payload.data;

@@ -37,8 +37,8 @@ const RUPEE = "\u20B9";
 
 const ACTIONS = [
   {
-    label: "Plans",
-    sub: "Compare cover",
+    label: "Insurance",
+    sub: "Protection",
     icon: "shield-checkmark-outline",
     route: "/(tabs)/plans",
   },

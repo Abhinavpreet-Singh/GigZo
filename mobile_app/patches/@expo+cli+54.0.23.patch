@@ -1,0 +1,14 @@
+diff --git a/node_modules/@expo/cli/build/src/api/rest/client.js b/node_modules/@expo/cli/build/src/api/rest/client.js
+index 5f4a81e..54d70b6 100644
+--- a/node_modules/@expo/cli/build/src/api/rest/client.js
++++ b/node_modules/@expo/cli/build/src/api/rest/client.js
+@@ -108,7 +108,8 @@ function wrapFetchWithCredentials(fetchFunction) {
+             });
+             // Handle expected API errors (4xx)
+             if (response.status >= 400 && response.status < 500) {
+-                const body = await response.text();
++                // Read from a clone so downstream consumers can still read the original body.
++                const body = await response.clone().text();
+                 try {
+                     var _data_errors;
+                     const data = JSON.parse(body);
