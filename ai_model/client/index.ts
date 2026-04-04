@@ -13,9 +13,12 @@ export {
   resolveCity,
   checkAiConnectivity,
   computeRiskLevel,
+  fetchPolicySummary,
   CITY_COORDS,
   fetchLiveWeatherByCoords,
   type LiveWeatherData,
+  type PolicySummary,
+  type PolicySummaryInput,
   type CityResult,
   type RiskLevel,
 } from "./weatherApi";

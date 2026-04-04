@@ -120,6 +120,45 @@ export type CityResult = {
 
 export type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
 
+export type PolicyBreakdownItem = {
+  factor: string;
+  value: string;
+  impact: string;
+};
+
+export type PolicyHistoryItem = {
+  policy_number: string;
+  date_range: string;
+  premium: number;
+  status: string;
+};
+
+export type PolicySummary = {
+  policy_number: string;
+  valid_range: string;
+  coverage_per_day: number;
+  premium_paid: number;
+  risk_level: RiskLevel;
+  live_status: string;
+  trigger_probability: number;
+  breakdown: PolicyBreakdownItem[];
+  explanation: string;
+  updated_at: string;
+  history: PolicyHistoryItem[];
+};
+
+export type PolicySummaryInput = {
+  lat: number;
+  lon: number;
+  city?: string;
+  zone?: string;
+  coveragePerDay?: number;
+  avgDailyEarning?: number;
+  workerRiskCategory?: "low" | "medium" | "high";
+  loyaltyWeeks?: number;
+  planType?: "basic" | "pro";
+};
+
 // ── City Coordinate Map ───────────────────────────────────────────────────────
 // Mirrors REAL_CITIES in ai_model/config.py — avoids a geocoding
 // network call for the most common Indian cities.
@@ -274,4 +313,42 @@ export function computeRiskLevel(data: LiveWeatherData): RiskLevel {
   if (wind_kph >= 50) return "MEDIUM";
 
   return "LOW";
+}
+
+/**
+ * Fetch the policy hub summary used by the Plans tab.
+ * Maps to: GET /policy-hub in ai_model/api.py
+ */
+export async function fetchPolicySummary(
+  input: PolicySummaryInput,
+): Promise<PolicySummary | null> {
+  const params = new URLSearchParams({
+    lat: String(input.lat),
+    lon: String(input.lon),
+    city: input.city ?? "",
+    zone: input.zone ?? "",
+    coverage_per_day: String(input.coveragePerDay ?? 500),
+    avg_daily_earning: String(input.avgDailyEarning ?? 1200),
+    worker_risk_category: input.workerRiskCategory ?? "high",
+    loyalty_weeks: String(input.loyaltyWeeks ?? 3),
+    plan_type: input.planType ?? "pro",
+  });
+
+  try {
+    const res = await aiFetch(`/policy-hub?${params.toString()}`);
+    if (!res.ok) {
+      console.warn(
+        "[ai_model] /policy-hub HTTP error:",
+        res.status,
+        res.statusText,
+      );
+      return null;
+    }
+
+    const data = await safeJson<PolicySummary>(res);
+    return data;
+  } catch (err) {
+    console.warn("[ai_model] /policy-hub fetch failed:", err);
+    return null;
+  }
 }
