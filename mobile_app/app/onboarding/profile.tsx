@@ -22,19 +22,31 @@ import {
 import { GigzoLockup } from "@/components/gigzo-ui";
 import { updateMyProfile } from "@/services/userApi";
 import { useAppStore } from "@/store/useAppStore";
+import {
+  CITY_ZONE_MAP,
+  findStateByCity,
+  STATE_CITY_MAP,
+} from "@/constants/locationData";
 
 const PLATFORMS = ["Zomato", "Swiggy", "Zepto", "Blinkit", "Amazon"] as const;
+const STATES = Object.keys(STATE_CITY_MAP);
 
 export default function ProfileOnboardingScreen() {
   const router = useRouter();
   const { user, setUser, setOnboarded } = useAppStore();
 
   const [name, setName] = useState(user.name || "");
+  const [stateName, setStateName] = useState(
+    findStateByCity(user.city || "") || "",
+  );
   const [platform, setPlatform] = useState<(typeof PLATFORMS)[number] | "">(
     (user.platform as (typeof PLATFORMS)[number]) || "",
   );
   const [city, setCity] = useState(user.city || "");
   const [zone, setZone] = useState(user.zone || "");
+  const [showStateOptions, setShowStateOptions] = useState(false);
+  const [showCityOptions, setShowCityOptions] = useState(false);
+  const [showZoneOptions, setShowZoneOptions] = useState(false);
 
   const [showMore, setShowMore] = useState(false);
   const [type, setType] = useState<"full-time" | "part-time" | "">(
@@ -49,6 +61,24 @@ export default function ProfileOnboardingScreen() {
   );
 
   const [isSaving, setIsSaving] = useState(false);
+
+  const cityOptions = useMemo(() => {
+    if (!stateName) {
+      return [];
+    }
+    return STATE_CITY_MAP[stateName] || [];
+  }, [stateName]);
+
+  const zoneOptions = useMemo(() => {
+    if (!city) {
+      return [];
+    }
+    const fromMap = CITY_ZONE_MAP[city] || [];
+    if (zone && !fromMap.includes(zone)) {
+      return [zone, ...fromMap];
+    }
+    return fromMap;
+  }, [city, zone]);
 
   const canContinue = useMemo(
     () =>
@@ -92,7 +122,7 @@ export default function ProfileOnboardingScreen() {
         city: profile.city || "",
         zone: profile.zone || "",
         coveragePerDay: profile.coveragePerDay || 0,
-        activePlan: profile.activePlan || "basic",
+        activePlan: profile.activePlan ?? null,
         isProtected: profile.isProtected,
         workerId: profile.workerId,
         type: profile.type,
@@ -171,23 +201,142 @@ export default function ProfileOnboardingScreen() {
             ))}
           </View>
 
+          <Text style={styles.label}>State</Text>
+          <TouchableOpacity
+            style={styles.selectTrigger}
+            onPress={() => {
+              setShowStateOptions((value) => !value);
+              setShowCityOptions(false);
+              setShowZoneOptions(false);
+            }}
+          >
+            <Text
+              style={stateName ? styles.selectValue : styles.selectPlaceholder}
+            >
+              {stateName || "Select state"}
+            </Text>
+            <Ionicons
+              name={showStateOptions ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={Neutral[500]}
+            />
+          </TouchableOpacity>
+          {showStateOptions ? (
+            <View style={styles.optionsWrap}>
+              {STATES.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.optionRow,
+                    stateName === item && styles.optionRowActive,
+                  ]}
+                  onPress={() => {
+                    setStateName(item);
+                    setCity("");
+                    setZone("");
+                    setShowStateOptions(false);
+                  }}
+                >
+                  <Text style={styles.optionText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
+
           <Text style={styles.label}>City</Text>
-          <TextInput
-            style={styles.input}
-            value={city}
-            onChangeText={setCity}
-            placeholder="e.g. Chandigarh"
-            placeholderTextColor={Neutral[300]}
-          />
+          <TouchableOpacity
+            style={[
+              styles.selectTrigger,
+              !stateName && styles.selectTriggerDisabled,
+            ]}
+            onPress={() => {
+              if (!stateName) return;
+              setShowCityOptions((value) => !value);
+              setShowStateOptions(false);
+              setShowZoneOptions(false);
+            }}
+            disabled={!stateName}
+          >
+            <Text style={city ? styles.selectValue : styles.selectPlaceholder}>
+              {city || "Select city"}
+            </Text>
+            <Ionicons
+              name={showCityOptions ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={Neutral[500]}
+            />
+          </TouchableOpacity>
+          {showCityOptions ? (
+            <View style={styles.optionsWrap}>
+              {cityOptions.map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.optionRow,
+                    city === item && styles.optionRowActive,
+                  ]}
+                  onPress={() => {
+                    setCity(item);
+                    setZone("");
+                    setShowCityOptions(false);
+                  }}
+                >
+                  <Text style={styles.optionText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
 
           <Text style={styles.label}>Zone</Text>
-          <TextInput
-            style={styles.input}
-            value={zone}
-            onChangeText={setZone}
-            placeholder="e.g. Sector 35"
-            placeholderTextColor={Neutral[300]}
-          />
+          <TouchableOpacity
+            style={[
+              styles.selectTrigger,
+              !city && styles.selectTriggerDisabled,
+            ]}
+            onPress={() => {
+              if (!city) return;
+              setShowZoneOptions((value) => !value);
+              setShowStateOptions(false);
+              setShowCityOptions(false);
+            }}
+            disabled={!city}
+          >
+            <Text style={zone ? styles.selectValue : styles.selectPlaceholder}>
+              {zone || "Select zone"}
+            </Text>
+            <Ionicons
+              name={showZoneOptions ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={Neutral[500]}
+            />
+          </TouchableOpacity>
+          {showZoneOptions ? (
+            <View style={styles.optionsWrap}>
+              {zoneOptions.length > 0 ? (
+                zoneOptions.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[
+                      styles.optionRow,
+                      zone === item && styles.optionRowActive,
+                    ]}
+                    onPress={() => {
+                      setZone(item);
+                      setShowZoneOptions(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{item}</Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.optionRow}>
+                  <Text style={styles.optionText}>
+                    No zones available for this city
+                  </Text>
+                </View>
+              )}
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={styles.moreToggle}
@@ -366,6 +515,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Neutral[900],
     backgroundColor: Neutral.white,
+  },
+  selectTrigger: {
+    borderWidth: 1.5,
+    borderColor: Neutral[200],
+    borderRadius: Radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    backgroundColor: Neutral.white,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  selectTriggerDisabled: {
+    opacity: 0.55,
+  },
+  selectPlaceholder: {
+    fontFamily: Font.medium,
+    fontSize: 15,
+    color: Neutral[300],
+  },
+  selectValue: {
+    fontFamily: Font.medium,
+    fontSize: 15,
+    color: Neutral[900],
+  },
+  optionsWrap: {
+    borderWidth: 1,
+    borderColor: Neutral[200],
+    borderRadius: Radius.lg,
+    marginTop: 8,
+    overflow: "hidden",
+    backgroundColor: Neutral.white,
+  },
+  optionRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: Neutral[100],
+  },
+  optionRowActive: {
+    backgroundColor: Brand.surfaceTint,
+  },
+  optionText: {
+    fontFamily: Font.medium,
+    fontSize: 14,
+    color: Neutral[700],
   },
   chips: {
     flexDirection: "row",

@@ -103,7 +103,7 @@ export default function EditProfileScreen() {
         city: profile.city || "",
         zone: profile.zone || "",
         coveragePerDay: profile.coveragePerDay || 0,
-        activePlan: profile.activePlan || "basic",
+        activePlan: profile.activePlan ?? null,
         isProtected: profile.isProtected,
         workerId: profile.workerId,
         type: profile.type,

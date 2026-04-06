@@ -168,6 +168,10 @@ export default function ProfileScreen() {
     .slice(0, 2)
     .toUpperCase();
 
+  const activePlanLabel = user.activePlan
+    ? `${user.activePlan.charAt(0).toUpperCase()}${user.activePlan.slice(1)}`
+    : "No active plan";
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <ModernNavBar
@@ -203,8 +207,10 @@ export default function ProfileScreen() {
             <View>
               <Text style={styles.profilePlanLabel}>Active plan</Text>
               <Text style={styles.profilePlanValue}>
-                Pro {"\u2022"} {RUPEE}
-                {user.coveragePerDay}/day
+                {activePlanLabel}
+                {user.coveragePerDay > 0
+                  ? ` ${"\u2022"} ${RUPEE}${user.coveragePerDay}/day`
+                  : ""}
               </Text>
             </View>
             <TouchableOpacity activeOpacity={0.85} style={styles.renewButton}>
