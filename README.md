@@ -5,8 +5,7 @@
 ## Overview
 
 GigZo is an AI-powered parametric insurance platform designed to protect
-delivery partners from income loss caused by real-world disruptions such as
-heavy rain, extreme pollution, floods, and sudden curfews.
+delivery partners from income loss caused by real-world disruptions such as heavy rain, extreme pollution, floods, and sudden curfews.
 
 Gig workers depend on daily working hours to earn their income. When external
 disruptions occur, deliveries stop and earnings immediately drop. GigZo
