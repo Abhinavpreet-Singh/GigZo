@@ -17,6 +17,26 @@ Our goal is simple:
 
 ![GigZo](docs/image.png)
 
+# Impact & Value Proposition
+
+GigZo is not just an insurance product — it is a **financial resilience layer** for the gig economy.
+
+### Key Impact
+
+* Prevents daily income loss for gig workers
+* Provides instant financial relief during disruptions
+* Reduces dependency on savings or loans
+* Enables financial inclusion at scale
+
+### Market Opportunity
+
+* India has **millions of gig workers** (Zomato, Swiggy, Blinkit, etc.)
+* No existing solution provides **real-time income protection**
+* Huge opportunity in **micro-insurance + fintech automation**
+
+GigZo positions itself at the intersection of:
+AI + Insurance + Real-time Data + Fintech
+
 # Problem Statement
 
 India’s gig economy includes millions of delivery partners working for platforms such as food delivery, e-commerce logistics, and quick commerce services. These workers face income volatility because their earnings depend heavily on factors outside their control.
