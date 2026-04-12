@@ -162,3 +162,4 @@ class PremiumEngine:
         premium = self.base_price + variable_premium
         premium *= vol_factor * pollution_factor * hist_factor * risk_cat_factor
         return float(round(premium, 2))
+

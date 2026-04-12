@@ -9,7 +9,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Brand, Neutral, Shadow, Spacing, Font } from "@/constants/theme";
+import {
+  Brand,
+  Neutral,
+  Shadow,
+  Spacing,
+  Font,
+} from "@/constants/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { GigzoLogoMark } from "@/components/gigzo-ui";
 
@@ -18,9 +24,6 @@ type ModernNavBarProps = {
   showLogo?: boolean;
   showNotifications?: boolean;
   showProfile?: boolean;
-  locationTitle?: string;
-  locationSubtitle?: string;
-  onPressLocation?: () => void;
   backgroundColor?: string;
   transparent?: boolean;
   children?: React.ReactNode;
@@ -61,9 +64,6 @@ export function ModernNavBar({
   showLogo = true,
   showNotifications = true,
   showProfile = true,
-  locationTitle,
-  locationSubtitle,
-  onPressLocation,
   backgroundColor = Brand.canvasStrong,
   transparent = false,
   children,
@@ -99,12 +99,7 @@ export function ModernNavBar({
         <View style={styles.shell}>
           <View style={styles.leftBlock}>
             {showLogo ? (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={onPressLocation}
-                disabled={!onPressLocation}
-                style={styles.locationRow}
-              >
+              <View style={styles.locationRow}>
                 <GigzoLogoMark
                   size={34}
                   inverted={transparent}
@@ -129,7 +124,7 @@ export function ModernNavBar({
                       style={[styles.locationTitle, { color: textPrimary }]}
                       numberOfLines={1}
                     >
-                      {locationTitle || user.zone}
+                      {user.zone}
                     </Text>
                     <Ionicons
                       name="chevron-down"
@@ -141,10 +136,10 @@ export function ModernNavBar({
                     style={[styles.locationMeta, { color: textSecondary }]}
                     numberOfLines={1}
                   >
-                    {locationSubtitle || `${user.city} • ${user.platform}`}
+                    {user.city} • {user.platform}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </View>
             ) : title ? (
               <View style={styles.titleRow}>
                 <View style={styles.titleBlock}>

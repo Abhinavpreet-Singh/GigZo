@@ -69,7 +69,7 @@ export default function RootLayout() {
             city: profile.city || "",
             zone: profile.zone || "",
             coveragePerDay: profile.coveragePerDay || 0,
-            activePlan: profile.activePlan ?? null,
+            activePlan: profile.activePlan || "basic",
             isProtected: profile.isProtected,
             workerId: profile.workerId,
             type: profile.type,
