@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import {
   Brand,
-  Neutral,
+  Neutral,  
   Shadow,
   Radius,
   Spacing,
@@ -30,7 +30,7 @@ import {
   fetchLiveWeather,
   fetchLiveWeatherByCoords,
   computeRiskLevel,
-  type LiveWeatherData,
+  type LiveWeatherData
 } from "@ai";
 
 const RUPEE = "\u20B9";
