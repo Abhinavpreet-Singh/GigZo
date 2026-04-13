@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #fafbfc;
+  --bg-canvas-strong: #f3f7f7;
+  --surface: #ffffff;
+  --surface-alt: #f8f9fa;
+  --surface-tint: #eef7f7;
+  --line: #e2e5e9;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --brand-primary: #02555d;
+  --brand-primary-mid: #03747f;
+  --brand-primary-light: #e6f4f5;
+  --brand-primary-dark: #013d44;
+  --brand-success: #16a34a;
+  --brand-warning: #d97706;
+  --brand-danger: #dc2626;
+  --shadow-soft: 0 10px 30px -22px rgba(2, 85, 93, 0.55);
+}
+
+@theme inline {
+  --color-background: var(--bg-canvas);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-inter);
+}
+
+body {
+  background: radial-gradient(circle at top right, rgba(143, 201, 200, 0.2), transparent 40%),
+    radial-gradient(circle at bottom left, rgba(122, 183, 191, 0.15), transparent 35%),
+    var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+}
+
+.gigzo-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.gigzo-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  padding: 0.65rem 0.8rem;
+  font-size: 0.92rem;
+}
+
+.gigzo-input:focus {
+  outline: none;
+  border-color: var(--brand-primary-mid);
+  box-shadow: 0 0 0 3px rgba(2, 85, 93, 0.12);
+}
+
+.gigzo-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+
+.gigzo-button {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.58rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 140ms ease;
+}
+
+.gigzo-button-primary {
+  background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-mid));
+  color: #fff;
+}
+
+.gigzo-button-primary:hover {
+  filter: brightness(1.04);
+}
+
+.gigzo-button-ghost {
+  background: var(--surface-tint);
+  color: var(--brand-primary-dark);
+  border-color: rgba(2, 85, 93, 0.18);
+}
+
+.gigzo-button-danger {
+  background: #fff;
+  color: var(--brand-danger);
+  border-color: rgba(220, 38, 38, 0.2);
+}
