@@ -1,31 +1,34 @@
 import { Platform } from "react-native";
 
 export function getApiBaseUrl() {
-  const fromSharedEnv = process.env.EXPO_PUBLIC_API_BASE_URL;
-  const fromModeEnv = __DEV__
-    ? process.env.EXPO_PUBLIC_API_BASE_URL_DEV
-    : process.env.EXPO_PUBLIC_API_BASE_URL_PROD;
-  const selectedUrl = fromModeEnv || fromSharedEnv;
+  const backendTarget =
+    process.env.EXPO_PUBLIC_BACKEND_TARGET?.trim().toLowerCase() ||
+    (__DEV__ ? "dev" : "prod");
+  const fromDevEnv = process.env.EXPO_PUBLIC_API_BASE_URL_DEV;
+  const fromProdEnv = process.env.EXPO_PUBLIC_API_BASE_URL_PROD;
 
-  if (selectedUrl) {
-    const normalized = selectedUrl.replace(/\/$/, "");
+  const selectedUrl =
+    backendTarget === "prod" || backendTarget === "production"
+      ? fromProdEnv
+      : fromDevEnv;
 
-    if (
-      Platform.OS === "android" &&
-      (normalized.startsWith("http://localhost") ||
-        normalized.startsWith("http://127.0.0.1"))
-    ) {
-      return normalized
-        .replace("http://localhost", "http://10.0.2.2")
-        .replace("http://127.0.0.1", "http://10.0.2.2");
-    }
-
-    return normalized;
+  if (!selectedUrl) {
+    throw new Error(
+      "Missing API base URL. Set EXPO_PUBLIC_API_BASE_URL_DEV and EXPO_PUBLIC_API_BASE_URL_PROD in mobile_app/.env.",
+    );
   }
 
-  if (Platform.OS === "android") {
-    return "http://10.0.2.2:5000";
+  const normalized = selectedUrl.replace(/\/$/, "");
+
+  if (
+    Platform.OS === "android" &&
+    (normalized.startsWith("http://localhost") ||
+      normalized.startsWith("http://127.0.0.1"))
+  ) {
+    return normalized
+      .replace("http://localhost", "http://10.0.2.2")
+      .replace("http://127.0.0.1", "http://10.0.2.2");
   }
 
-  return "http://localhost:5000";
+  return normalized;
 }

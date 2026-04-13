@@ -13,8 +13,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import {
+  PhoneAuthProvider,
+  type ApplicationVerifier,
+  signInWithCredential,
+  signInWithPhoneNumber,
+} from "firebase/auth";
 import { FirebaseRecaptchaVerifierModal } from "expo-firebase-recaptcha";
-import { PhoneAuthProvider, signInWithCredential } from "firebase/auth";
 import {
   Brand,
   Neutral,
@@ -40,7 +45,7 @@ export default function OTPScreen() {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const refs = useRef<(TextInput | null)[]>([]);
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal | null>(null);
 
   const normalizedPhone = useMemo(() => {
     const digits = phone.replace(/\D/g, "");
@@ -59,24 +64,41 @@ export default function OTPScreen() {
   };
 
   const handleSendOtp = async () => {
-    if (!normalizedPhone || !recaptchaVerifier.current) {
+    if (!normalizedPhone) {
       Alert.alert("Invalid phone", "Enter a valid 10 digit phone number.");
       return;
     }
 
     try {
       setIsSendingOtp(true);
-      const provider = new PhoneAuthProvider(auth);
-      const newVerificationId = await provider.verifyPhoneNumber(
+      if (Platform.OS !== "web" && !recaptchaVerifier.current) {
+        throw new Error(
+          "Phone verification is not ready yet. Please wait a moment and try again.",
+        );
+      }
+
+      const confirmation = await signInWithPhoneNumber(
+        auth,
         normalizedPhone,
-        recaptchaVerifier.current,
+        Platform.OS === "web"
+          ? undefined
+          : (recaptchaVerifier.current as unknown as ApplicationVerifier),
       );
-      setVerificationId(newVerificationId);
+      setVerificationId(confirmation.verificationId);
       setOtpSent(true);
       Alert.alert("OTP sent", `Code sent to ${normalizedPhone}`);
     } catch (error) {
+      const firebaseCode =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : "";
+
       const message =
-        error instanceof Error ? error.message : "Unable to send OTP.";
+        firebaseCode === "auth/argument-error"
+          ? "Phone auth configuration is incomplete. Enable Phone sign-in in Firebase and verify Expo Firebase settings."
+          : error instanceof Error
+            ? error.message
+            : "Unable to send OTP.";
       Alert.alert("Send OTP failed", message);
     } finally {
       setIsSendingOtp(false);
@@ -116,7 +138,7 @@ export default function OTPScreen() {
             city: profile.city || "",
             zone: profile.zone || "",
             coveragePerDay: profile.coveragePerDay || 0,
-            activePlan: profile.activePlan ?? null,
+            activePlan: profile.activePlan || "basic",
             isProtected: profile.isProtected,
             workerId: profile.workerId,
             type: profile.type,
@@ -131,7 +153,7 @@ export default function OTPScreen() {
         } else {
           router.push("/onboarding/profile");
         }
-      } catch (error) {
+      } catch {
         router.push("/onboarding/profile");
       }
     } catch (error) {
@@ -153,7 +175,9 @@ export default function OTPScreen() {
       <FirebaseRecaptchaVerifierModal
         ref={recaptchaVerifier}
         firebaseConfig={firebaseConfig}
+        attemptInvisibleVerification
       />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}

@@ -17,22 +17,6 @@ type FirebaseLoginResponse = {
   };
 };
 
-async function parseApiResponse<T>(response: Response): Promise<{
-  payload: T | null;
-  rawBody: string;
-}> {
-  const rawBody = await response.text();
-  if (!rawBody) {
-    return { payload: null, rawBody: "" };
-  }
-
-  try {
-    return { payload: JSON.parse(rawBody) as T, rawBody };
-  } catch {
-    return { payload: null, rawBody };
-  }
-}
-
 export async function firebaseLogin(idToken: string) {
   const url = `${API_BASE_URL}/api/auth/firebase-login`;
 
@@ -54,22 +38,18 @@ export async function firebaseLogin(idToken: string) {
     );
   }
 
-  const { payload, rawBody } = await parseApiResponse<FirebaseLoginResponse>(
-    response,
-  );
+  let payload: FirebaseLoginResponse | null = null;
+  try {
+    payload = (await response.json()) as FirebaseLoginResponse;
+  } catch {
+    // Some backend failures return non-JSON bodies.
+  }
 
   if (!response.ok || !payload?.success || !payload.data?.accessToken) {
-    if (payload?.message) {
-      throw new Error(payload.message);
-    }
-
-    const rawSummary = rawBody.trim().slice(0, 120);
-
+    const backendMessage = payload?.message || "Authentication failed.";
     throw new Error(
-      `Authentication failed (HTTP ${response.status}). ` +
-        (rawSummary
-          ? `Server response: ${rawSummary}`
-          : "The server returned an empty or invalid response."),
+      `${backendMessage} (status ${response.status}). ` +
+        "Check Firebase Admin credentials and JWT settings on backend.",
     );
   }
 

@@ -51,6 +51,14 @@ export default function ActivePolicyScreen({
 
         <View style={styles.detailGrid}>
           <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Policy number</Text>
+            <Text style={styles.detailValue}>{policy.policyNumber || policy.id}</Text>
+          </View>
+          <View style={styles.detailItem}>
+            <Text style={styles.detailLabel}>Validity</Text>
+            <Text style={styles.detailValue}>{policy.validRange || `${new Date(policy.startDate).toLocaleDateString("en-IN")} - ${new Date(policy.endDate).toLocaleDateString("en-IN")}`}</Text>
+          </View>
+          <View style={styles.detailItem}>
             <Text style={styles.detailLabel}>Plan</Text>
             <Text style={styles.detailValue}>{policy.planName}</Text>
           </View>

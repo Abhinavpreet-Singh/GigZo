@@ -95,7 +95,7 @@ export default function PlanSelectionScreen({
           <ActivityIndicator size="small" color={Neutral.white} />
         ) : (
           <>
-            <Text style={styles.activateButtonText}>Activate Protection</Text>
+            <Text style={styles.activateButtonText}>Pay & Activate</Text>
             <Ionicons name="shield-checkmark-outline" size={16} color={Neutral.white} />
           </>
         )}

@@ -2,6 +2,7 @@ import express from "express";
 import { requireAuth } from "../../middlewares/auth.middleware.js";
 import {
   getPolicyPlansController,
+  createPolicyOrderController,
   purchasePolicyController,
   getMyPolicyController,
   renewPolicyController,
@@ -11,6 +12,7 @@ import {
 const router = express.Router();
 
 router.get("/plans", requireAuth, getPolicyPlansController);
+router.post("/checkout/order", requireAuth, createPolicyOrderController);
 router.post("/purchase", requireAuth, purchasePolicyController);
 router.get("/my-policy", requireAuth, getMyPolicyController);
 router.post("/renew", requireAuth, renewPolicyController);

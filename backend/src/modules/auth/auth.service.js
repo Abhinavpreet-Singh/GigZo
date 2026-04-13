@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
-import { User, WorkerProfile } from "../../models/index.js";
+import { prisma } from "../../db/index.js";
 import { verifyFirebaseIdToken } from "../../config/firebase.js";
-import { Op } from "sequelize";
+import { formatUserProfile } from "../../utils/profile.mapper.js";
 
 function normalizeIndianPhone(phoneNumber) {
   if (!phoneNumber || typeof phoneNumber !== "string") {
@@ -24,17 +24,17 @@ function normalizeIndianPhone(phoneNumber) {
   return null;
 }
 
-function getUserIdentifier(decodedToken) {
+function getUserIdentifiers(decodedToken) {
   const normalizedPhone = normalizeIndianPhone(decodedToken.phone_number);
-  if (normalizedPhone) {
-    return normalizedPhone;
-  }
+  const email =
+    decodedToken.email && typeof decodedToken.email === "string"
+      ? decodedToken.email.toLowerCase()
+      : null;
 
-  if (decodedToken.email && typeof decodedToken.email === "string") {
-    return `email:${decodedToken.email.toLowerCase()}`;
-  }
-
-  return null;
+  return {
+    phone: normalizedPhone || (email ? `email:${email}` : null),
+    email,
+  };
 }
 
 export async function loginWithFirebaseToken(idToken) {
@@ -46,9 +46,9 @@ export async function loginWithFirebaseToken(idToken) {
 
   const decoded = await verifyFirebaseIdToken(idToken);
   const firebaseUid = decoded.uid;
-  const userIdentifier = getUserIdentifier(decoded);
+  const { phone: userPhone, email: userEmail } = getUserIdentifiers(decoded);
 
-  if (!userIdentifier) {
+  if (!userPhone) {
     const error = new Error(
       "Phone number or email is missing in Firebase token.",
     );
@@ -56,107 +56,76 @@ export async function loginWithFirebaseToken(idToken) {
     throw error;
   }
 
-  let user = await User.findOne({
-    where: {
-      [Op.or]: [{ firebaseUid }, { phone: userIdentifier }],
-    },
-    include: [{ model: WorkerProfile, as: "workerProfile" }],
+  const result = await prisma.$transaction(async (tx) => {
+    let user = await tx.user.findFirst({
+      where: {
+        OR: [
+          { firebaseUid },
+          { phone: userPhone },
+          ...(userEmail ? [{ email: userEmail }] : []),
+        ],
+      },
+    });
+
+    if (!user) {
+      user = await tx.user.create({
+        data: {
+          firebaseUid,
+          phone: userPhone,
+          email: userEmail,
+          name: decoded.name || null,
+          lastLoginAt: new Date(),
+        },
+      });
+    } else {
+      user = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          firebaseUid,
+          phone: userPhone,
+          email: user.email || userEmail,
+          name: user.name || decoded.name || null,
+          lastLoginAt: new Date(),
+        },
+      });
+    }
+
+    const profile = await tx.workerProfile.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id },
+      update: {},
+    });
+
+    return { user, profile };
   });
-
-  if (!user) {
-    user = await User.create({
-      firebaseUid,
-      phone: userIdentifier,
-      name: decoded.name || null,
-      email: decoded.email || null,
-      lastLoginAt: new Date(),
-    });
-
-    // Create an empty worker profile for the new user
-    await WorkerProfile.create({ userId: user.id });
-
-    // Reload with association
-    user = await User.findByPk(user.id, {
-      include: [{ model: WorkerProfile, as: "workerProfile" }],
-    });
-  } else {
-    user.firebaseUid = firebaseUid;
-    user.phone = userIdentifier;
-    if (!user.name && decoded.name) {
-      user.name = decoded.name;
-    }
-    if (!user.email && decoded.email) {
-      user.email = decoded.email;
-    }
-    user.lastLoginAt = new Date();
-    await user.save();
-  }
 
   const accessToken = jwt.sign(
     {
-      userId: user.id,
-      phone: user.phone,
-      firebaseUid: user.firebaseUid,
+      userId: String(result.user.id),
+      phone: result.user.phone,
+      firebaseUid: result.user.firebaseUid,
     },
     process.env.JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || "7d" },
   );
 
-  const profile = user.workerProfile || {};
-
   return {
     accessToken,
-    user: {
-      id: user.id,
-      phone: user.phone,
-      name: user.name,
-      email: user.email,
-      platform: profile.platform || null,
-      city: profile.city || null,
-      zone: profile.zone || null,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    },
+    user: formatUserProfile(result.user, result.profile),
   };
 }
 
 export async function getProfileByUserId(userId) {
-  const user = await User.findByPk(userId, {
-    include: [{ model: WorkerProfile, as: "workerProfile" }],
+  const id = Number(userId);
+  const user = await prisma.user.findUnique({
+    where: { id },
+    include: { profile: true },
   });
-
   if (!user) {
     const error = new Error("User not found.");
     error.statusCode = 404;
     throw error;
   }
 
-  const profile = user.workerProfile || {};
-
-  return {
-    id: user.id,
-    phone: user.phone,
-    name: user.name,
-    email: user.email,
-    firebaseUid: user.firebaseUid,
-    age: profile.age || null,
-    platform: profile.platform || null,
-    workerId: profile.workerId || null,
-    type: profile.type || null,
-    city: profile.city || null,
-    zone: profile.zone || null,
-    pincode: profile.pincode || null,
-    workingArea: profile.workingArea || null,
-    workingHoursPerDay: profile.workingHoursPerDay || null,
-    avgDailyEarning: profile.avgDailyEarning || 0,
-    riskScore: profile.riskScore || 0,
-    isProtected: profile.isProtected || false,
-    activePlan: profile.activePlan || "basic",
-    coveragePerDay: profile.coveragePerDay || 0,
-    deviceFingerprint: profile.deviceFingerprint || null,
-    lastLocation: profile.lastLocation || null,
-    lastActivityAt: profile.lastActivityAt || null,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
+  return formatUserProfile(user, user.profile || {});
 }

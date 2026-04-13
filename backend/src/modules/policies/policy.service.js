@@ -1,8 +1,10 @@
+import crypto from "node:crypto";
 import { Op } from "sequelize";
 import { sequelize } from "../../db/index.js";
 import { Policy, WorkerProfile } from "../../models/index.js";
 
 const POLICY_DURATION_DAYS = 7;
+const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
 
 const PLAN_CATALOG = {
   basic: {
@@ -47,6 +49,111 @@ function normalizeString(value) {
   return text.length ? text : null;
 }
 
+function getPlanCodeFromName(planName) {
+  if (!planName || typeof planName !== "string") {
+    return null;
+  }
+
+  return planName.toLowerCase().includes("pro") ? "pro" : "basic";
+}
+
+function formatDateLabel(date) {
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function buildPolicyNumber(policyId) {
+  return `POL-${String(policyId).replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+}
+
+function buildPolicyRange(startDate, endDate) {
+  return `${formatDateLabel(startDate)} - ${formatDateLabel(endDate)}`;
+}
+
+function buildRazorpayAuthHeader() {
+  const keyId = normalizeString(process.env.RAZORPAY_KEY_ID);
+  const keySecret = normalizeString(process.env.RAZORPAY_KEY_SECRET);
+
+  if (!keyId || !keySecret) {
+    const error = new Error(
+      "Razorpay credentials are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`;
+}
+
+async function callRazorpay(path, options = {}) {
+  const response = await fetch(`${RAZORPAY_API_BASE}${path}`, {
+    ...options,
+    headers: {
+      Authorization: buildRazorpayAuthHeader(),
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  const rawBody = await response.text();
+  let payload = null;
+
+  if (rawBody) {
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      payload = null;
+    }
+  }
+
+  if (!response.ok) {
+    const error = new Error(
+      payload?.error?.description || payload?.error?.reason || rawBody ||
+        `Razorpay request failed (HTTP ${response.status}).`,
+    );
+    error.statusCode = Number(payload?.error?.code) || response.status || 500;
+    error.details = payload;
+    throw error;
+  }
+
+  return payload;
+}
+
+function verifyRazorpaySignature({ orderId, paymentId, signature }) {
+  const keySecret = normalizeString(process.env.RAZORPAY_KEY_SECRET);
+
+  if (!keySecret) {
+    const error = new Error(
+      "Razorpay credentials are missing. Set RAZORPAY_KEY_SECRET.",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const expectedSignature = crypto
+    .createHmac("sha256", keySecret)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+  return expectedSignature === signature;
+}
+
+function toPolicyDisplay(policy) {
+  const planCode = getPlanCodeFromName(policy.planName);
+
+  return {
+    policyNumber: buildPolicyNumber(policy.id),
+    planCode,
+    validRange: buildPolicyRange(policy.startDate, policy.endDate),
+    premiumPaid: policy.weeklyPremium,
+    liveStatus:
+      policy.status === "active" ? "LIVE PROTECTION ACTIVE" : policy.status.toUpperCase(),
+  };
+}
+
 function getStatusCode(error) {
   return Number(error?.statusCode) || 500;
 }
@@ -54,12 +161,19 @@ function getStatusCode(error) {
 function toPolicyResponse(policy) {
   if (!policy) return null;
 
+  const display = toPolicyDisplay(policy);
+
   return {
     id: policy.id,
+    policyNumber: display.policyNumber,
     userId: policy.userId,
+    planCode: display.planCode,
     planName: policy.planName,
     weeklyPremium: policy.weeklyPremium,
+    premiumPaid: display.premiumPaid,
     coveragePerDay: policy.coveragePerDay,
+    validRange: display.validRange,
+    liveStatus: display.liveStatus,
     zone: policy.zone,
     city: policy.city,
     triggers: policy.triggers,
@@ -164,6 +278,140 @@ export function getAvailablePlans() {
     coveragePerDay: plan.coveragePerDay,
     triggers: plan.triggers,
   }));
+}
+
+export async function createPolicyCheckoutForUser(userId, payload) {
+  const planCode = normalizeString(payload?.plan)?.toLowerCase();
+  const zone = normalizeString(payload?.zone);
+  const city = normalizeString(payload?.city);
+
+  if (!planCode || !PLAN_CATALOG[planCode]) {
+    const error = new Error("Invalid plan. Choose 'basic' or 'pro'.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!zone || !city) {
+    const error = new Error("Both zone and city are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  await expireOutdatedPolicies(userId);
+
+  const activePolicy = await Policy.findOne({
+    where: { userId, status: "active" },
+    order: [["createdAt", "DESC"]],
+  });
+
+  if (isPolicyCurrentlyActive(activePolicy)) {
+    const error = new Error(
+      "An active policy already exists. Cancel or renew it before buying again.",
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const selectedPlan = PLAN_CATALOG[planCode];
+  const amount = Math.round(Number(selectedPlan.weeklyPremium) * 100);
+  const keyId = normalizeString(process.env.RAZORPAY_KEY_ID);
+
+  if (!keyId) {
+    const error = new Error(
+      "Razorpay credentials are missing. Set RAZORPAY_KEY_ID.",
+    );
+    error.statusCode = 500;
+    throw error;
+  }
+
+  const receipt = `gigzo-${userId}-${planCode}-${Date.now()}`;
+  const order = await callRazorpay("/orders", {
+    method: "POST",
+    body: JSON.stringify({
+      amount,
+      currency: "INR",
+      receipt,
+      notes: {
+        userId: String(userId),
+        planCode,
+        zone,
+        city,
+      },
+    }),
+  });
+
+  return {
+    keyId,
+    orderId: order.id,
+    amount: order.amount,
+    currency: order.currency,
+    receipt: order.receipt,
+    plan: {
+      code: selectedPlan.code,
+      planName: selectedPlan.planName,
+      weeklyPremium: selectedPlan.weeklyPremium,
+      coveragePerDay: selectedPlan.coveragePerDay,
+      triggers: selectedPlan.triggers,
+    },
+    zone,
+    city,
+  };
+}
+
+export async function confirmPolicyPurchaseForUser(userId, payload) {
+  const planCode = normalizeString(payload?.plan)?.toLowerCase();
+  const zone = normalizeString(payload?.zone);
+  const city = normalizeString(payload?.city);
+  const razorpayOrderId = normalizeString(payload?.razorpayOrderId);
+  const razorpayPaymentId = normalizeString(payload?.razorpayPaymentId);
+  const razorpaySignature = normalizeString(payload?.razorpaySignature);
+
+  if (!planCode || !PLAN_CATALOG[planCode]) {
+    const error = new Error("Invalid plan. Choose 'basic' or 'pro'.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!zone || !city) {
+    const error = new Error("Both zone and city are required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+    const error = new Error("Razorpay payment verification data is missing.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!verifyRazorpaySignature({
+    orderId: razorpayOrderId,
+    paymentId: razorpayPaymentId,
+    signature: razorpaySignature,
+  })) {
+    const error = new Error("Invalid Razorpay payment signature.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const order = await callRazorpay(`/orders/${razorpayOrderId}`, {
+    method: "GET",
+  });
+
+  const selectedPlan = PLAN_CATALOG[planCode];
+  const expectedAmount = Math.round(Number(selectedPlan.weeklyPremium) * 100);
+
+  if (Number(order.amount) !== expectedAmount) {
+    const error = new Error("Payment amount does not match the selected plan.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return purchasePolicyForUser(userId, {
+    plan: planCode,
+    zone,
+    city,
+  });
 }
 
 export async function purchasePolicyForUser(userId, payload) {

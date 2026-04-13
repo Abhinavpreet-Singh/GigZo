@@ -54,11 +54,22 @@ export async function getPlans() {
   return request("/api/policies/plans", { method: "GET" });
 }
 
-export async function purchasePolicy(input) {
+export async function createPolicyCheckout(input) {
+  return request("/api/policies/checkout/order", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function confirmPolicyPurchase(input) {
   return request("/api/policies/purchase", {
     method: "POST",
     body: JSON.stringify(input),
   });
+}
+
+export async function purchasePolicy(input) {
+  return confirmPolicyPurchase(input);
 }
 
 export async function getMyPolicy() {
