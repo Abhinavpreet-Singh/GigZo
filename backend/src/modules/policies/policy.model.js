@@ -40,7 +40,7 @@ const Policy = sequelize.define(
       allowNull: false,
     },
     triggers: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: false,
     },
     startDate: {

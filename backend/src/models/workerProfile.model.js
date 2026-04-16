@@ -78,11 +78,11 @@ const WorkerProfile = sequelize.define(
       defaultValue: 0,
     },
     deviceFingerprint: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: true,
     },
     lastLocation: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: true,
     },
     lastActivityAt: {
