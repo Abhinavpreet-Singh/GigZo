@@ -9,17 +9,26 @@ const envPath = path.resolve(__dirname, "../../.env");
 
 dotenv.config({ path: envPath, override: true });
 
-const sequelize = new Sequelize(process.env.DATABASE_URL, {
-  dialect: "postgres",
-  protocol: "postgres",
-  logging: false,
-  dialectOptions: {
-    ssl: {
-      require: true,
-      rejectUnauthorized: false,
-    },
-  },
-});
+const useRemotePostgres = process.env.USE_REMOTE_POSTGRES === "true";
+const useLocalSqlite = !useRemotePostgres;
+
+const sequelize = useLocalSqlite
+  ? new Sequelize({
+      dialect: "sqlite",
+      storage: path.resolve(__dirname, "../../gigzo-dev.sqlite"),
+      logging: false,
+    })
+  : new Sequelize(process.env.DATABASE_URL, {
+      dialect: "postgres",
+      protocol: "postgres",
+      logging: false,
+      dialectOptions: {
+        ssl: {
+          require: true,
+          rejectUnauthorized: false,
+        },
+      },
+    });
 
 export default sequelize;
 export { sequelize };

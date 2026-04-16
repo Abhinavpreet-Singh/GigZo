@@ -1,5 +1,6 @@
 import {
   getAvailablePlans,
+  createPolicyCheckoutForUser,
   purchasePolicyForUser,
   getCurrentPolicyForUser,
   renewPolicyForUser,
@@ -14,6 +15,27 @@ export async function getPolicyPlansController(_req, res) {
     return res.status(200).json({
       success: true,
       data: plans,
+    });
+  } catch (error) {
+    const failure = formatPolicyServiceError(error);
+    return res.status(failure.statusCode).json({
+      success: false,
+      message: failure.message,
+    });
+  }
+}
+
+export async function createPolicyCheckoutController(req, res) {
+  try {
+    const checkout = await createPolicyCheckoutForUser(
+      req.user.userId,
+      req.body || {},
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Checkout order created successfully.",
+      data: checkout,
     });
   } catch (error) {
     const failure = formatPolicyServiceError(error);
