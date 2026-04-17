@@ -2,6 +2,9 @@
 
 ### AI-Powered Parametric Insurance for Gig Delivery Workers
 
+## Pitch Deck
+https://docs.google.com/presentation/d/1obTgNkInre4js96Q4swkiU_NLXDLa_O9vt7VZbVNDe4/edit?usp=sharing
+
 ## Overview
 
 GigZo is an AI-powered parametric insurance platform designed to protect delivery partners from income loss caused by real-world disruptions such as heavy rain, extreme pollution, floods, and sudden curfews.
